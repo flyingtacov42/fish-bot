@@ -10,7 +10,7 @@ class Player:
     name: the name of the player (This is technically meaningless for the game state)
     num_cards: the number of cards that each of the 6 players have
     info: a dictionary that stores the "status" of the cards for each player
-    half_suit_info: a dictionary that stores at least how many cards of each half suit each player has
+    hs_info: a dictionary that stores at least how many cards of each half suit each player has
 
     The structure of the info dictionary is like this:
     {
@@ -41,7 +41,7 @@ class Player:
     Determine the "optimal" play that it can make
     Determine whether to call, and which half suit
     """
-    def __init__(self, ID, num_cards, info, half_suit_info, name = None):
+    def __init__(self, ID, num_cards, info, hs_info, name = None):
         """
         Initializes the player with the information:
         ID: a number in the range 1-6 that denotes the team of the player.
@@ -85,21 +85,21 @@ class Player:
         self.name = name
         self.num_cards = num_cards
         self.info = info
-        self.half_suit_info = half_suit_info
+        self.hs_info = hs_info
+        self._update_info()
 
-    def __init__(self, ID, own_cards, name = None):
+    @classmethod
+    def player_start_of_game(cls, ID, own_cards, name = None):
         """
         This initialization corresponds to the initialization at the start of a fish game
         Assumes that everyone has 9 cards
         """
-        self.ID = ID
-        self.name = name
-        self.num_cards = {x: 9 for x in range(1,7)}
-        self.info = self._init_info_start_game(ID, own_cards)
-        self.half_suit_info = self._init_hs_info_start_game()
-        self._update_info()
+        num_cards = {x: 9 for x in range(1, 7)}
+        return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards), 
+                   cls._init_hs_info_start_game(ID, own_cards), name = name)
 
-    def _init_info_start_game(self, ID, own_cards):
+    @staticmethod
+    def _init_info_start_game(ID, own_cards):
         """
         Returns the info dictionary assuming its the start of a new game
         Given your own cards and ID
@@ -115,16 +115,16 @@ class Player:
             info[player_id] = player_cards.copy()
         return info
 
-    def _init_hs_info_start_game(self):
+    @staticmethod
+    def _init_hs_info_start_game(ID, own_cards):
         """
         Returns the half suit info dictionary assuming its the start of a new game
         Uses data from the already intialized info dictionary
         """
         blank_hs = {hs: 0 for hs in card_utils.gen_all_halfsuits()}
-        hs_info = {ID: blank_hs.copy() for ID in range(1, 7)}
-        for card in self.info[self.ID]:
-            if self.info[self.ID][card] == "Y":
-                hs_info[self.ID][card_utils.find_half_suit(card)] += 1
+        hs_info = {player_id: blank_hs.copy() for player_id in range(1, 7)}
+        for card in own_cards:
+            hs_info[ID][card_utils.find_half_suit(card)] += 1
         return hs_info
 
 
@@ -171,12 +171,12 @@ class Player:
                 for c in cards:
                     if self.info[ID][c] == "N":
                         no_count += 1
-                if no_count == 6 - self.half_suit_info[ID][hs]:
+                if no_count == 6 - self.hs_info[ID][hs]:
                     for c in cards:
                         if self.info[ID][c] == "?":
                             self.info[ID][c] = "Y"
-                if no_count > 6 - self.half_suit_info[ID][hs]:
-                    raise Exception("Player " + ID + " should have at least " + self.half_suit_info[ID][hs]
+                if no_count > 6 - self.hs_info[ID][hs]:
+                    raise Exception("Player " + ID + " should have at least " + self.hs_info[ID][hs]
                                     + " cards in the half suit " + hs + ", but doesn't")
 
     def update_transaction(self, ID_ask, ID_target, card, success):
@@ -193,14 +193,14 @@ class Player:
             self.num_cards[ID_target] -= 1
             self.info[ID_ask][card] = "Y"
             self.info[ID_target][card] = "N"
-            self.half_suit_info[ID_ask][card_utils.find_half_suit(card)] += 1
-            if self.half_suit_info[ID_target][card_utils.find_half_suit(card)] > 0:
-                self.half_suit_info[ID_target][card_utils.find_half_suit(card)] -= 1
+            self.hs_info[ID_ask][card_utils.find_half_suit(card)] += 1
+            if self.hs_info[ID_target][card_utils.find_half_suit(card)] > 0:
+                self.hs_info[ID_target][card_utils.find_half_suit(card)] -= 1
         else:
             self.info[ID_ask][card] = "N"
             self.info[ID_target][card] = "N"
-            if self.half_suit_info[ID_ask][card_utils.find_half_suit(card)] == 0:
-                self.half_suit_info[ID_ask][card_utils.find_half_suit(card)] = 1
+            if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
+                self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
         self._update_info()
 
     def update_call(self, hs, card_count_hs):
@@ -252,8 +252,8 @@ class Player:
         ask_guarenteed = self._check_card_same_hs()
         if ask_guarenteed:
             return ask_guarenteed
-        return self.info
-
+        self.print_info()
+        return None
 
     def _check_card_same_hs(self):
         """
@@ -273,6 +273,7 @@ class Player:
         """
         Calculates the expected number of half suits that each opposing player can take
         """
+
 
     def _check_call(self):
         """
