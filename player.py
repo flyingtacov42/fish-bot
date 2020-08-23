@@ -86,7 +86,7 @@ class Player:
         This initialization corresponds to the initialization at the start of a fish game
         Assumes that everyone has 9 cards
         """
-        num_cards = {x: 9 for x in range(1, 7)}
+        num_cards = {x: 9 for x in range(6)}
         return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards), 
                    cls._init_hs_info_start_game(ID, own_cards), name = name)
 
@@ -97,7 +97,7 @@ class Player:
         Given your own cards and ID
         """
         info = {}
-        for player_id in range(1, 7):
+        for player_id in range(6):
             if player_id == ID:
                 player_cards = {card: 0 for card in card_utils.gen_all_cards()}
                 for card in own_cards:
@@ -114,7 +114,7 @@ class Player:
         Uses data from the already intialized info dictionary
         """
         blank_hs = {hs: 0 for hs in card_utils.gen_all_halfsuits()}
-        hs_info = {player_id: blank_hs.copy() for player_id in range(1, 7)}
+        hs_info = {player_id: blank_hs.copy() for player_id in range(6)}
         for card in own_cards:
             hs_info[ID][card_utils.find_half_suit(card)] += 1
         return hs_info
@@ -135,11 +135,11 @@ class Player:
         # First check for people with guarenteed cards
         for card in card_utils.gen_all_cards():
             id_exists = 0
-            for ID in range(1, 7):
+            for ID in range(6):
                 if self.info[ID][card] == 1:
                     id_exists = ID
             if id_exists != 0:
-                for ID in range(1, 7):
+                for ID in range(6):
                     if ID != id_exists:
                         if self.info[ID][card] == 1:
                             raise Exception("Two or more players have the card " + card)
@@ -147,8 +147,8 @@ class Player:
 
         # Next update probability of unsures
         for card in card_utils.gen_all_cards():
-            possible_list = list(range(1, 7))
-            for ID in range(1, 7):
+            possible_list = list(range(6))
+            for ID in range(6):
                 if self.info[ID][card] == 0:
                     possible_list.remove(ID)
             if len(possible_list) > 0:
@@ -157,7 +157,7 @@ class Player:
 
         # Now check for when a player has a known half suit but not all known cards in that hs
         for hs in card_utils.gen_all_halfsuits():
-            for ID in range(1, 7):
+            for ID in range(6):
                 cards = card_utils.find_cards(hs)
                 no_count = 0
                 for c in cards:
@@ -208,12 +208,24 @@ class Player:
 
         Note that there's no difference whether the call succeeds or fails!
         """
-        for ID in range(1, 7):
+        for ID in range(6):
             for card in card_utils.find_cards(hs):
                 self.info[ID][card] = 0
             self.hs_info[ID][hs] = 0
             self.num_cards[ID] -= card_count_hs[ID]
         self._update_info()
+
+
+    def own_cards(self):
+        """
+        Returns a list of the cards the player currently has
+        """
+        cards = []
+        for c in self.info[self.ID]:
+            if self.info[self.ID][c] == 1:
+                cards.append(c)
+        return cards
+
 
     def _check_legal_ask(self, ID_target, card):
         """
@@ -233,21 +245,15 @@ class Player:
                         return True
         return False
 
-    def make_optimal_play(self):
+    def make_optimal_ask(self):
         """
-        Returns the optimal person and card to ask, and whether to call or not
-        Returns either 
-        (call, (players, cards)) or
-        (ask, target_player_id, card)
+        Returns the optimal person and card to ask
+        Format: (target_player_id, card)
         """
-        call = self._check_call()
-        if call:
-            return call
         ask_guarenteed = self._check_card_same_hs()
         if ask_guarenteed:
             return ask_guarenteed
-        self.print_info()
-        return None
+        return self._list_best_options()
 
     def _check_card_same_hs(self):
         """
@@ -263,13 +269,35 @@ class Player:
                             return (ID, card)
         return False
 
-    def _calculate_danger(self):
+    def _list_best_options(self):
         """
-        Calculates the expected number of half suits that each opposing player can take
+        Returns a list of the highest probability asks you can make, according to self.info
+        Ties are broken in this method by the following criteria:
+        1. Number of guarenteed cards in half suit
+        If player A is guarenteed to have more cards in the half suit than player B, ask them
+
+        This method does not account for the "danger" of asking certain players yet
         """
+        best_asks = []
+        highest_prob = 0
+        most_hs_cards = 0
+        for card in card_utils.gen_all_cards():
+            for ID in self._get_opponents():
+                if self._check_legal_ask(ID, card):
+                    if self.info[ID][card] > highest_prob:
+                        best_asks = [(ID, card)]
+                        highest_prob = self.info[ID][card]
+                        most_hs_cards = self.hs_info[ID][card_utils.find_half_suit(card)]
+                    elif self.info[ID][card] == highest_prob:
+                        if self.hs_info[ID][card_utils.find_half_suit(card)] > most_hs_cards:
+                            best_asks = [(ID, card)]
+                            most_hs_cards = self.hs_info[ID][card_utils.find_half_suit(card)]
+                        elif self.hs_info[ID][card_utils.find_half_suit(card)] == most_hs_cards:
+                            best_asks.append((ID, card))
+        return best_asks
 
 
-    def _check_call(self):
+    def check_call(self):
         """
         Check if you can call a half suit
         Returns a list of tuples like this:
@@ -293,18 +321,18 @@ class Player:
         """
         if self.ID % 2 == 0:
             return (1, 3, 5)
-        return (2, 4, 6)
+        return (0, 2, 4)
 
     def _get_teammates(self):
         """
         returns the ID of your teammates
         """
         if self.ID % 2 == 0:
-            return (2, 4, 6)
+            return (0, 2, 4)
         return (1, 3, 5)
 
     def print_info(self):
-        for ID in range(1, 7):
+        for ID in range(6):
             if self.ID == ID:
                 print ("Player {} (You)".format(ID))
             else:
