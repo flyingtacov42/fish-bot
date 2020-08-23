@@ -40,7 +40,7 @@ class Player:
     def __init__(self, ID, num_cards, info, hs_info, name = None):
         """
         Initializes the player with the information:
-        ID: a number in the range 1-6 that denotes the team of the player.
+        ID: a number in the range 0-5 that denotes the team of the player.
         IDs are universally agreed on by all players
         ID numbers 1, 3, and 5 are on 1 team
 
@@ -134,11 +134,11 @@ class Player:
         """
         # First check for people with guarenteed cards
         for card in card_utils.gen_all_cards():
-            id_exists = 0
+            id_exists = -1
             for ID in range(6):
                 if self.info[ID][card] == 1:
                     id_exists = ID
-            if id_exists != 0:
+            if id_exists != -1:
                 for ID in range(6):
                     if ID != id_exists:
                         if self.info[ID][card] == 1:
