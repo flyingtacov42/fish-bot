@@ -1,12 +1,14 @@
 import card_utils
-import transaction
+import random
+from constants import YES, NO, UNSURE
+
 
 class Player:
     """
     The player class represents each of the players in a Fish game.
     It is responsible for storing the following information:
 
-    id: the id of the Player (1-6)
+    id: the id of the Player (0-5)
     name: the name of the player (This is technically meaningless for the game state)
     num_cards: the number of cards that each of the 6 players have
     info: a dictionary that stores the "status" of the cards for each player
@@ -16,12 +18,10 @@ class Player:
     {
     player id: 
         {
-        Card name: probability
+        Card name: Status
         }
     }
-    Where probability is a number between 0 and 1 that denotes the chance the player has the card
-    This is just 1/number of players that could have the card
-    Does not account for complex calculations like if a player has more cards
+    Status is either YES, NO, or UNSURE, as defined in constants
 
     The structure of the half suit info dictionary is like this:
     {
@@ -37,41 +37,24 @@ class Player:
     Determine the "optimal" play that it can make
     Determine whether to call, and which half suit
     """
-    def __init__(self, ID, num_cards, info, hs_info, name = None):
+
+    def __init__(self, ID, num_cards, info, hs_info, name=None):
         """
         Initializes the player with the information:
-        ID: a number in the range 0-5 that denotes the team of the player.
+        :param ID: a number in the range 0-5 that denotes the team of the player.
         IDs are universally agreed on by all players
         ID numbers 1, 3, and 5 are on 1 team
 
-        Name: The name of the player. This field is not relevant to the logic in the game.
-
-        Num_cards:
+        :param Num_cards:
         A dictionary that stores the id of the player and how many cards each player has
 
-        info: stores the information that the current player knows about each player.
-        The structure of the info dictionary is like this:
-        {
-        player id: 
-            {
-            Card name: probability
-            }
-        }
-        Where probability is a number between 0 and 1 that denotes the chance the player has the card
-        This is just 1/number of players that could have the card
-        Does not account for complex calculations like if a player has more cards
+        :param hs_info: A dictionary that stores the number of cards that each player has in
+        each half suit
 
-        The structure of the half suit info dictionary is like this:
-        {
-        player id: 
-            {
-            Half suit name: count
-            }
-        }
-        Where count is the minimum number of cards a player has in a half suit
+        :param Name: The name of the player. This field is not relevant to the logic in the game.
 
         Since each player knows their own cards, the section of the dictionary corresponding
-        to their own id will be completely determined (1 or 0)
+        to their own id will be completely determined (YES or NO)
         """
         self.ID = ID
         self.name = name
@@ -81,14 +64,14 @@ class Player:
         self._update_info()
 
     @classmethod
-    def player_start_of_game(cls, ID, own_cards, name = None):
+    def player_start_of_game(cls, ID, own_cards, name=None):
         """
         This initialization corresponds to the initialization at the start of a fish game
         Assumes that everyone has 9 cards
         """
         num_cards = {x: 9 for x in range(6)}
-        return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards), 
-                   cls._init_hs_info_start_game(ID, own_cards), name = name)
+        return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards),
+                   cls._init_hs_info_start_game(ID, own_cards), name=name)
 
     @staticmethod
     def _init_info_start_game(ID, own_cards):
@@ -99,11 +82,11 @@ class Player:
         info = {}
         for player_id in range(6):
             if player_id == ID:
-                player_cards = {card: 0 for card in card_utils.gen_all_cards()}
+                player_cards = {card: NO for card in card_utils.gen_all_cards()}
                 for card in own_cards:
-                    player_cards[card] = 1
+                    player_cards[card] = YES
             else:
-                player_cards = {card: 1/5 for card in card_utils.gen_all_cards()}
+                player_cards = {card: UNSURE for card in card_utils.gen_all_cards()}
             info[player_id] = player_cards.copy()
         return info
 
@@ -118,7 +101,6 @@ class Player:
         for card in own_cards:
             hs_info[ID][card_utils.find_half_suit(card)] += 1
         return hs_info
-
 
     def _update_info(self):
         """
@@ -136,24 +118,14 @@ class Player:
         for card in card_utils.gen_all_cards():
             id_exists = -1
             for ID in range(6):
-                if self.info[ID][card] == 1:
+                if self.info[ID][card] == YES:
                     id_exists = ID
             if id_exists != -1:
                 for ID in range(6):
                     if ID != id_exists:
-                        if self.info[ID][card] == 1:
+                        if self.info[ID][card] == YES:
                             raise Exception("Two or more players have the card " + card)
-                        self.info[ID][card] = 0
-
-        # Next update probability of unsures
-        for card in card_utils.gen_all_cards():
-            possible_list = list(range(6))
-            for ID in range(6):
-                if self.info[ID][card] == 0:
-                    possible_list.remove(ID)
-            if len(possible_list) > 0:
-                for ID in possible_list:
-                    self.info[ID][card] == 1/len(possible_list)
+                        self.info[ID][card] = NO
 
         # Now check for when a player has a known half suit but not all known cards in that hs
         for hs in card_utils.gen_all_halfsuits():
@@ -161,38 +133,38 @@ class Player:
                 cards = card_utils.find_cards(hs)
                 no_count = 0
                 for c in cards:
-                    if self.info[ID][c] == 0:
+                    if self.info[ID][c] == NO:
                         no_count += 1
                 if no_count == 6 - self.hs_info[ID][hs]:
                     for c in cards:
-                        if self.info[ID][c] > 0:
-                            self.info[ID][c] = 1
+                        if self.info[ID][c] != NO:
+                            self.info[ID][c] = YES
                 if no_count > 6 - self.hs_info[ID][hs]:
-                    raise Exception("Player " + ID + " should have at least " + self.hs_info[ID][hs]
-                                    + " cards in the half suit " + hs + ", but doesn't")
+                    raise Exception("Player {} should have at least {} cards in the half suit, but doesn't"
+                                    .format(ID, self.hs_info[ID][hs]))
 
     def update_transaction(self, ID_ask, ID_target, card, success):
         """
         Given a transaction, updates the player's info and half suit info
 
-        ID_ask: ID of player asking for the card
-        ID_target: player being asked
-        card: card being asked
-        success: true if card was taken from ID_target
+        :param ID_ask: ID of player asking for the card
+        :param ID_target: player being asked
+        :param card: card being asked
+        :param success: true if card was taken from ID_target
         """
         if success:
             self.num_cards[ID_ask] += 1
             self.num_cards[ID_target] -= 1
-            self.info[ID_ask][card] = 1
-            self.info[ID_target][card] = 0
+            self.info[ID_ask][card] = YES
+            self.info[ID_target][card] = NO
             if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
                 self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
             self.hs_info[ID_ask][card_utils.find_half_suit(card)] += 1
             if self.hs_info[ID_target][card_utils.find_half_suit(card)] > 0:
                 self.hs_info[ID_target][card_utils.find_half_suit(card)] -= 1
         else:
-            self.info[ID_ask][card] = 0
-            self.info[ID_target][card] = 0
+            self.info[ID_ask][card] = NO
+            self.info[ID_target][card] = NO
             if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
                 self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
         self._update_info()
@@ -210,11 +182,10 @@ class Player:
         """
         for ID in range(6):
             for card in card_utils.find_cards(hs):
-                self.info[ID][card] = 0
+                self.info[ID][card] = NO
             self.hs_info[ID][hs] = 0
             self.num_cards[ID] -= card_count_hs[ID]
         self._update_info()
-
 
     def own_cards(self):
         """
@@ -222,10 +193,9 @@ class Player:
         """
         cards = []
         for c in self.info[self.ID]:
-            if self.info[self.ID][c] == 1:
+            if self.info[self.ID][c] == YES:
                 cards.append(c)
         return cards
-
 
     def _check_legal_ask(self, ID_target, card):
         """
@@ -238,10 +208,10 @@ class Player:
         ID_target: The ID of the person the self wants to ask
         card: the card that we are checking the legality of
         """
-        if ID_target % 2 == self.ID % 2 and ID_target != self.ID:
-            if self.info[self.ID][card] == 0:
-                for c in card_utils.find_cards(find_half_suit(card)):
-                    if self.info[self.ID][c] == 1:
+        if ID_target % 2 != self.ID % 2:
+            if self.info[self.ID][card] == NO:
+                for c in card_utils.find_cards(card_utils.find_half_suit(card)):
+                    if self.info[self.ID][c] == YES:
                         return True
         return False
 
@@ -250,23 +220,30 @@ class Player:
         Returns the optimal person and card to ask
         Format: (target_player_id, card)
         """
-        ask_guarenteed = self._check_card_same_hs()
+        ask_guarenteed = self._check_card_guarenteed()
         if ask_guarenteed:
             return ask_guarenteed
-        return self._list_best_options()
+        # For now, just ask randomly if no obvious card
+        target = self._get_opponents()[random.randint(0, 2)]
+        valid = []
+        for c in card_utils.gen_all_cards():
+            if self._check_legal_ask(target, c):
+                valid.append(c)
+        return target, valid[random.randint(0, len(valid) - 1)]
+        # return self._list_best_options()[0]
 
-    def _check_card_same_hs(self):
+    def _check_card_guarenteed(self):
         """
         Checks if an opponent player has a card that you know you are guarenteed to guess correctly
         If so, return a tuple (player_id, card)
         If not, return False
         """
         for hs in card_utils.gen_all_halfsuits():
-            if self.hs_info[hs] > 0:
+            if self.hs_info[self.ID][hs] > 0:
                 for card in card_utils.find_cards(hs):
                     for ID in self._get_opponents():
-                        if self.info[ID][card] == 1:
-                            return (ID, card)
+                        if self.info[ID][card] == YES:
+                            return ID, card
         return False
 
     def _list_best_options(self):
@@ -284,7 +261,7 @@ class Player:
         for card in card_utils.gen_all_cards():
             for ID in self._get_opponents():
                 if self._check_legal_ask(ID, card):
-                    if self.info[ID][card] > highest_prob:
+                    if self.info[ID][card] != NO:
                         best_asks = [(ID, card)]
                         highest_prob = self.info[ID][card]
                         most_hs_cards = self.hs_info[ID][card_utils.find_half_suit(card)]
@@ -296,7 +273,6 @@ class Player:
                             best_asks.append((ID, card))
         return best_asks
 
-
     def check_call(self):
         """
         Check if you can call a half suit
@@ -306,10 +282,9 @@ class Player:
         """
         for hs in card_utils.gen_all_halfsuits():
             call = []
-            call_flag = True
-            for card in card_utils.find_cards():
+            for card in card_utils.find_cards(hs):
                 for ID in self._get_teammates():
-                    if self.info[ID][card] == 1:
+                    if self.info[ID][card] == YES:
                         call.append((ID, card))
             if len(call) == 6:
                 return call
@@ -320,32 +295,32 @@ class Player:
         returns the IDs of the opponents
         """
         if self.ID % 2 == 0:
-            return (1, 3, 5)
-        return (0, 2, 4)
+            return 1, 3, 5
+        return 0, 2, 4
 
     def _get_teammates(self):
         """
         returns the ID of your teammates
         """
         if self.ID % 2 == 0:
-            return (0, 2, 4)
-        return (1, 3, 5)
+            return 0, 2, 4
+        return 1, 3, 5
 
     def print_info(self):
         for ID in range(6):
             if self.ID == ID:
-                print ("Player {} (You)".format(ID))
+                print("Player {} (You)".format(ID))
             else:
-                print ("Player {}".format(ID))
+                print("Player {}".format(ID))
             known_yes = []
             known_no = []
             for card in card_utils.gen_all_cards():
-                if self.info[ID][card] == 1:
+                if self.info[ID][card] == YES:
                     known_yes.append(card)
-                elif self.info[ID][card] == 0:
+                elif self.info[ID][card] == NO:
                     known_no.append(card)
-            print ("Guarenteed to have: ")
-            print (" ".join(known_yes))
-            print ("Guarenteed to not have: ")
-            print (" ".join(known_no))
-            print ("\n")
+            print("Guarenteed to have: ")
+            print(" ".join(known_yes))
+            print("Guarenteed to not have: ")
+            print(" ".join(known_no))
+            print("\n")
