@@ -101,23 +101,27 @@ class FishGame:
         for player in self.players:
             player.update_transaction(ID_ask, ID_target, card, success)
 
-    def run_whole_game(self, verbose = 0):
+    def run_whole_game(self, verbose = 0, max_turns = 1000):
         """
         :param verbose: Prints nothing if 0, prints the final score if 1,
-        prints all transactions/calls if 2
+        prints all calls if 2, prints all transactions and calls if 3
         Makes the players play through an entire game. This consists of first
         asking for anyone who wants to call on each round. Then, if no one
         wants to call, the game asks for the player who has the turn to request
         a card. Plays until everyone is out of cards
+        :return: True if game goes on longer than 1000 turns and False otherwise
         """
-        if verbose not in [0, 1, 2]:
-            raise Exception("Verbosity must be 0, 1, or 2!")
+        turns = 0
+        if verbose not in [0, 1, 2, 3]:
+            raise Exception("Verbosity must be 0, 1, 2, or 3!")
         while not self.check_game_finished():
+            if turns > max_turns:
+                break
             # First check for calls
             call = self.check_call()
             while call:
                 hs, team, success = call
-                if verbose == 2:
+                if verbose >= 2:
                     if success:
                         print ("Team {} successfully called half suit {}".format(team, hs))
                     else:
@@ -142,16 +146,18 @@ class FishGame:
             # Now get the player who has turn's request
             if not self.check_game_finished():
                 ID_ask, ID_target, card, success = self.get_move()
-                if verbose == 2:
+                if verbose == 3:
                     if success:
                         print ("Player {} successfully took {} from {}".format(ID_ask, card, ID_target))
                     else:
                         print ("Player {} did not take {} from {}".format(ID_ask, card, ID_target))
                 self.report_ask(ID_ask, ID_target, card, success)
+                turns += 1
         if verbose >= 1:
             print ("Final Score:")
             print ("Team 0: " + str(self.team0_score))
             print ("Team 1: " + str(self.team1_score))
+        return turns > max_turns
 
     def check_game_finished(self):
         """

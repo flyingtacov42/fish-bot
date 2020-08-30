@@ -110,7 +110,7 @@ class FishDecisionMaker(keras.Sequential):
         :param card: Card being asked
         :return: Action number (0-161)
         """
-        player_num = (((ID_target - ID_ask) % 6) - 1)/2
+        player_num = (((ID_target - ID_ask) % 6) - 1)//2
         card_num = list(card_utils.gen_all_cards()).index(card)
         return player_num * constants.DECK_SIZE + card_num
 

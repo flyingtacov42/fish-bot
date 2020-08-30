@@ -14,7 +14,7 @@ class Player:
     info: a dictionary that stores the "status" of the cards for each player
     hs_info: a dictionary that stores at least how many cards of each half suit each player has
 
-    The structure of the info dictionary is like this:
+    The structure of the info and public info dictionaries are like this:
     {
     player id: 
         {
@@ -38,7 +38,7 @@ class Player:
     Determine whether to call, and which half suit
     """
 
-    def __init__(self, ID, num_cards, info, hs_info, name=None):
+    def __init__(self, ID, num_cards, info, public_info, hs_info, name=None):
         """
         Initializes the player with the information:
         :param ID: a number in the range 0-5 that denotes the team of the player.
@@ -60,8 +60,10 @@ class Player:
         self.name = name
         self.num_cards = num_cards
         self.info = info
+        self.public_info = public_info
         self.hs_info = hs_info
         self._update_info()
+        self._update_public_info()
 
     @classmethod
     def player_start_of_game(cls, ID, own_cards, name=None):
@@ -71,6 +73,7 @@ class Player:
         """
         num_cards = {x: 9 for x in range(6)}
         return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards),
+                   cls._init_public_info_start_game(),
                    cls._init_hs_info_start_game(ID, own_cards), name=name)
 
     @staticmethod
@@ -89,6 +92,20 @@ class Player:
                 player_cards = {card: UNSURE for card in card_utils.gen_all_cards()}
             info[player_id] = player_cards.copy()
         return info
+
+    @staticmethod
+    def _init_public_info_start_game():
+        """
+        Returns an "empty" public info dictionary
+        :return: a dictionary that represents the public information at the start of the game
+        """
+        public_info_dict = {}
+        for ID in range(6):
+            player_info = {}
+            for card in card_utils.gen_all_cards():
+                player_info[card] = UNSURE
+            public_info_dict[ID] = player_info
+        return public_info_dict
 
     @staticmethod
     def _init_hs_info_start_game(ID, own_cards):
@@ -114,18 +131,26 @@ class Player:
         This method will also throw an exception if there is contradictory information, 
         such as 2 players both having the same card
         """
-        # First check for people with guarenteed cards
+        # First update Yes -> No for other players
+        # And 5 Nos -> Yes for 1 player
         for card in card_utils.gen_all_cards():
             id_exists = -1
+            id_unsures = list(range(6))
             for ID in range(6):
                 if self.info[ID][card] == YES:
                     id_exists = ID
+                elif self.info[ID][card] == NO:
+                    id_unsures.remove(ID)
+            # Yes -> Nos for everyone else scenario
             if id_exists != -1:
                 for ID in range(6):
                     if ID != id_exists:
                         if self.info[ID][card] == YES:
                             raise Exception("Two or more players have the card " + card)
                         self.info[ID][card] = NO
+            # 5 Nos -> Yes scenario
+            elif len(id_unsures) == 1:
+                self.info[id_unsures[0]][card] = YES
 
         # Now check for when a player has a known half suit but not all known cards in that hs
         for hs in card_utils.gen_all_halfsuits():
@@ -143,9 +168,38 @@ class Player:
                     raise Exception("Player {} should have at least {} cards in the half suit, but doesn't"
                                     .format(ID, self.hs_info[ID][hs]))
 
+        # Next check if unsures = num cards left
+        for ID in range(6):
+            unsures = []
+            for c in card_utils.gen_all_cards():
+                if self.info[ID][c] == UNSURE:
+                    unsures.append(c)
+            if self.num_cards[ID] == len(unsures):
+                for c in unsures:
+                    self.info[ID][c] = YES
+
+    def _update_public_info(self):
+        """
+        Updates the public info dictionary, using the same logic as
+        in the _update_info method
+        Note that we don't need to update based on half suit information
+        because half suit information is determined by public info
+        """
+        for card in card_utils.gen_all_cards():
+            id_exists = -1
+            for ID in range(6):
+                if self.public_info[ID][card] == YES:
+                    id_exists = ID
+            if id_exists != -1:
+                for ID in range(6):
+                    if ID != id_exists:
+                        if self.public_info[ID][card] == YES:
+                            raise Exception("Two or more players have the card " + card)
+                        self.public_info[ID][card] = NO
+
     def update_transaction(self, ID_ask, ID_target, card, success):
         """
-        Given a transaction, updates the player's info and half suit info
+        Given a transaction, updates the player's info, public info, and half suit info
 
         :param ID_ask: ID of player asking for the card
         :param ID_target: player being asked
@@ -157,6 +211,8 @@ class Player:
             self.num_cards[ID_target] -= 1
             self.info[ID_ask][card] = YES
             self.info[ID_target][card] = NO
+            self.public_info[ID_ask][card] = YES
+            self.public_info[ID_target][card] = NO
             if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
                 self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
             self.hs_info[ID_ask][card_utils.find_half_suit(card)] += 1
@@ -165,9 +221,12 @@ class Player:
         else:
             self.info[ID_ask][card] = NO
             self.info[ID_target][card] = NO
+            self.public_info[ID_ask][card] = NO
+            self.public_info[ID_target][card] = NO
             if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
                 self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
         self._update_info()
+        self._update_public_info()
 
     def update_call(self, hs, card_count_hs):
         """
@@ -183,9 +242,11 @@ class Player:
         for ID in range(6):
             for card in card_utils.find_cards(hs):
                 self.info[ID][card] = NO
+                self.public_info[ID][card] = NO
             self.hs_info[ID][hs] = 0
             self.num_cards[ID] -= card_count_hs[ID]
         self._update_info()
+        self._update_public_info()
 
     def own_cards(self):
         """
