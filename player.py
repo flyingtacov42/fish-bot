@@ -171,18 +171,18 @@ class Player:
                     if info_dict[ID][c] == UNSURE:
                         res = UNSURE
                         info_dict[ID][c] = YES
-                        if not Player._is_consistent(info_dict, remaining_hs, hs_info, num_cards):
+                        if not Player._is_consistent(info_dict, remaining_hs, hs_info, num_cards, check_cards):
                             res = NO
                             changed = True
                         info_dict[ID][c] = NO
-                        if not Player._is_consistent(info_dict, remaining_hs, hs_info, num_cards):
+                        if not Player._is_consistent(info_dict, remaining_hs, hs_info, num_cards, check_cards):
                             res = YES
                             changed = True
                         info_dict[ID][c] = res
         return info_dict
 
     @staticmethod
-    def _is_consistent(info_dict, remaining_hs, hs_info, num_cards):
+    def _is_consistent(info_dict, remaining_hs, hs_info, num_cards, check_cards=tuple(card_utils.gen_all_cards())):
         """
         Checks if an info dictionary is consistent. If the info dictionary
         has a contradiction, returns false. Otherwise returns true.
@@ -200,10 +200,17 @@ class Player:
         :param remaining_hs: the remaining half suits in the game
         :param hs_info: the half suit info
         :param num_cards: number of each players cards
+        :param check_cards: cards to check for consistency
         :return: True if consistent, false otherwise
         """
+        # Calculate check_hs based on check_cards
+        check_hs = set([])
+        for c in check_cards:
+            hs = card_utils.find_half_suit(c)
+            if hs not in check_hs and hs in remaining_hs:
+                check_hs.add(hs)
         # Rule 1
-        for card in card_utils.gen_all_cards():
+        for card in check_cards:
             players_yes = 0
             for ID in range(6):
                 if info_dict[ID][card] == YES:
@@ -211,7 +218,7 @@ class Player:
             if players_yes > 1:
                 return False
         # Rule 2
-        for hs in remaining_hs:
+        for hs in check_hs:
             for card in card_utils.find_cards(hs):
                 players_no = 0
                 for ID in range(6):
@@ -220,7 +227,7 @@ class Player:
                 if players_no == 6:
                     return False
         # Rule 3
-        for hs in remaining_hs:
+        for hs in check_hs:
             for ID in range(6):
                 hs_no_count = 0
                 for card in card_utils.find_cards(hs):
