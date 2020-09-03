@@ -1,6 +1,7 @@
 import card_utils
 import random
 from constants import YES, NO, UNSURE
+from exceptions import InfoDictException
 
 
 class Player:
@@ -146,7 +147,8 @@ class Player:
                 for ID in range(6):
                     if ID != id_exists:
                         if self.info[ID][card] == YES:
-                            raise Exception("Two or more players have the card " + card)
+                            self.print_info()
+                            raise InfoDictException("Two or more players have the card " + card)
                         self.info[ID][card] = NO
             # 5 Nos -> Yes scenario
             elif len(id_unsures) == 1:
@@ -165,8 +167,9 @@ class Player:
                         if self.info[ID][c] != NO:
                             self.info[ID][c] = YES
                 if no_count > 6 - self.hs_info[ID][hs]:
-                    raise Exception("Player {} should have at least {} cards in the half suit, but doesn't"
-                                    .format(ID, self.hs_info[ID][hs]))
+                    self.print_info()
+                    raise InfoDictException("Player {} should have at least {} cards in the half suit {}, but doesn't"
+                                    .format(ID, self.hs_info[ID][hs], hs))
 
         # Next check if unsures = num cards left
         for ID in range(6):
@@ -384,4 +387,4 @@ class Player:
             print(" ".join(known_yes))
             print("Guarenteed to not have: ")
             print(" ".join(known_no))
-            print("\n")
+            print()

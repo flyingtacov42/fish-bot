@@ -43,12 +43,6 @@ class TestPlayer(unittest.TestCase):
         expected = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
         self.assertEqual(res, expected, "Failed in init_public_info_start_game")
 
-    def test_init_public_hs_info_start_game(self):
-        p1 = Player.player_start_of_game(0, [])
-        res = p1._init_public_hs_info_start_game()
-        expected = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
-        self.assertEqual(res, expected, "Failed in init_public_hs_info_start_game")
-
     def test_update_info(self):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
         p1 = Player.player_start_of_game(0, own_hand)
@@ -108,6 +102,20 @@ class TestPlayer(unittest.TestCase):
         self.assertEqual(p1.hs_info[2]["Hh"], 2, "Other player's half suit info not updated correctly")
         self.assertEqual(p1.public_info[1]["Th"], constants.NO, "Public info for asker not correct")
         self.assertEqual(p1.public_info[2]["Th"], constants.YES, "Public info for target not correct")
+
+    def test_update_successful_transaction_2(self):
+        own_hand = ["5h", "7h", "Jh", "2d", "Ad", "8c", "SJ", "6s", "6c"]
+        p1 = Player.player_start_of_game(0, own_hand)
+        p1.update_transaction(3, 4, "9c", False)
+        p1.update_transaction(4, 3, "Tc", False)
+        p1.update_transaction(3, 4, "Jc", False)
+        p1.update_transaction(4, 3, "Qc", False)
+        for ID in [3, 4]:
+            for card in ["Kc", "Ac"]:
+                self.assertEqual(p1.info[ID][card], constants.UNSURE, "Not enough info to know about p{}'s status of {}".format(ID, card))
+            self.assertEqual(p1.hs_info[ID]["Hc"], 1, "player 3 has incorrect half suit info")
+            for card in ["9c", "Tc", "Jc", "Qc"]:
+                self.assertEqual(p1.info[ID][card], constants.NO, "Did not update p{}'s {}".format(ID, card))
 
     def test_update_failed_transaction(self):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
@@ -227,7 +235,7 @@ class TestGame(unittest.TestCase):
     def test_play_random_fish_game(self):
         game = FishGame.start_random_game()
         max_turns = 500
-        result = game.run_whole_game(verbose=2, max_turns=max_turns)
+        result = game.run_whole_game(verbose=3, max_turns=max_turns)
         if result:
             print("Game went on >{} turns".format(max_turns))
 

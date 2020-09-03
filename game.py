@@ -1,6 +1,7 @@
 from player import Player
 import card_utils
 import numpy.random as random
+from exceptions import InfoDictException, GameConfigException
 
 class FishGame:
     """
@@ -21,6 +22,7 @@ class FishGame:
         """
         cards_seen_dict = {c: 0 for c in card_utils.gen_all_cards()}
         self.players = []
+        self.player_cards = {ID: player_cards[ID] for ID in range(6)}
         for i, cards in enumerate(player_cards):
             player = Player.player_start_of_game(i, cards)
             self.players.append(player)
@@ -28,10 +30,10 @@ class FishGame:
                 if c in cards_seen_dict:
                     cards_seen_dict[c] += 1
                 else:
-                    raise Exception("Not a valid card string!")
+                    raise GameConfigException("Not a valid card string!")
         for count in cards_seen_dict.values():
             if count > 1:
-                raise Exception("There is a duplicate card!")
+                raise GameConfigException("There is a duplicate card!")
         self.turn = start
         self.team1_score = team1_score
         self.team0_score = team0_score
@@ -59,7 +61,7 @@ class FishGame:
             if call:
                 success = True
                 for ID, card in call:
-                    if card not in self.players[ID].own_cards():
+                    if card not in self.player_cards[ID]:
                         success = False
                 return [card_utils.find_half_suit(card), caller.ID % 2, success]
         return False
@@ -73,31 +75,38 @@ class FishGame:
         """
         asker = self.turn
         target, card = self.players[self.turn].make_optimal_ask()
-        success = card in self.players[target].own_cards()
+        success = card in self.player_cards[target]
         if not success:
             self.turn = target
         return asker, target, card, success
 
     def report_call(self, hs):
         """
+        Updates the player_cards dict
         Makes each player update their info in response to a call
+        :param hs: half suit being called
         """
         hs_info_dict = {ID: 0 for ID in range(6)}
         for card in card_utils.find_cards(hs):
             for ID in range(6):
-                if card in self.players[ID].own_cards():
+                if card in self.player_cards[ID]:
+                    self.player_cards[ID].remove(card)
                     hs_info_dict[ID] += 1
         for player in self.players:
             player.update_call(hs, hs_info_dict)
 
     def report_ask(self, ID_ask, ID_target, card, success):
         """
+        Updates the player_cards dict
         Makes each player update their info in response to an ask
         :param ID_ask: ID of player asking for the card
         :param ID_target: ID of player being asked
         :param card: card being asked
         :param success: True if ask was successful
         """
+        if success:
+            self.player_cards[ID_ask].append(card)
+            self.player_cards[ID_target].remove(card)
         for player in self.players:
             player.update_transaction(ID_ask, ID_target, card, success)
 
@@ -126,7 +135,12 @@ class FishGame:
                         print ("Team {} successfully called half suit {}".format(team, hs))
                     else:
                         print ("Team {} unsuccessfully called half suit {}".format(team, hs))
-                self.report_call(hs)
+                try:
+                    self.report_call(hs)
+                except InfoDictException:
+                    print ("Failed in updating calling")
+                    print (self.player_cards)
+                    break
                 if success and team == 1 or not success and team == 0:
                     self.team1_score += 1
                 else:
@@ -151,7 +165,12 @@ class FishGame:
                         print ("Player {} successfully took {} from {}".format(ID_ask, card, ID_target))
                     else:
                         print ("Player {} did not take {} from {}".format(ID_ask, card, ID_target))
-                self.report_ask(ID_ask, ID_target, card, success)
+                try:
+                    self.report_ask(ID_ask, ID_target, card, success)
+                except InfoDictException:
+                    print ("Failed in updating ask")
+                    print (self.player_cards)
+                    break
                 turns += 1
         if verbose >= 1:
             print ("Final Score:")
