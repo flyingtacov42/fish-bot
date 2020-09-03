@@ -144,12 +144,12 @@ class Player:
                     id_unsures.remove(ID)
             # Yes -> Nos for everyone else scenario
             if id_exists != -1:
-                for ID in range(6):
-                    if ID != id_exists:
-                        if self.info[ID][card] == YES:
+                for ID_change in range(6):
+                    if ID_change != id_exists:
+                        if self.info[ID_change][card] == YES:
                             self.print_info()
                             raise InfoDictException("Two or more players have the card " + card)
-                        self.info[ID][card] = NO
+                        self.info[ID_change][card] = NO
             # 5 Nos -> Yes scenario
             elif len(id_unsures) == 1:
                 self.info[id_unsures[0]][card] = YES
@@ -159,8 +159,8 @@ class Player:
             for ID in range(6):
                 cards = card_utils.find_cards(hs)
                 no_count = 0
-                for c in cards:
-                    if self.info[ID][c] == NO:
+                for card in cards:
+                    if self.info[ID][card] == NO:
                         no_count += 1
                 if no_count == 6 - self.hs_info[ID][hs]:
                     for c in cards:
@@ -174,9 +174,9 @@ class Player:
         # Next check if unsures = num cards left
         for ID in range(6):
             unsures = []
-            for c in card_utils.gen_all_cards():
-                if self.info[ID][c] == UNSURE:
-                    unsures.append(c)
+            for card in card_utils.gen_all_cards():
+                if self.info[ID][card] == UNSURE:
+                    unsures.append(card)
             if self.num_cards[ID] == len(unsures):
                 for c in unsures:
                     self.info[ID][c] = YES
@@ -185,8 +185,6 @@ class Player:
         """
         Updates the public info dictionary, using the same logic as
         in the _update_info method
-        Note that we don't need to update based on half suit information
-        because half suit information is determined by public info
         """
         for card in card_utils.gen_all_cards():
             id_exists = -1

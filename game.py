@@ -75,7 +75,9 @@ class FishGame:
         """
         asker = self.turn
         target, card = self.players[self.turn].make_optimal_ask()
-        success = card in self.player_cards[target]
+        success = False
+        if card in self.player_cards[target]:
+            success = True
         if not success:
             self.turn = target
         return asker, target, card, success
@@ -137,9 +139,11 @@ class FishGame:
                         print ("Team {} unsuccessfully called half suit {}".format(team, hs))
                 try:
                     self.report_call(hs)
-                except InfoDictException:
+                except InfoDictException as err:
+                    print(err)
                     print ("Failed in updating calling")
-                    print (self.player_cards)
+                    for i in range(6):
+                        print (self.player_cards[i], self.players[i].own_cards())
                     break
                 if success and team == 1 or not success and team == 0:
                     self.team1_score += 1
@@ -167,9 +171,11 @@ class FishGame:
                         print ("Player {} did not take {} from {}".format(ID_ask, card, ID_target))
                 try:
                     self.report_ask(ID_ask, ID_target, card, success)
-                except InfoDictException:
+                except InfoDictException as err:
+                    print (err)
                     print ("Failed in updating ask")
-                    print (self.player_cards)
+                    for i in range(6):
+                        print(self.player_cards[i], self.players[i].own_cards())
                     break
                 turns += 1
         if verbose >= 1:

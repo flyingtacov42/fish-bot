@@ -103,20 +103,6 @@ class TestPlayer(unittest.TestCase):
         self.assertEqual(p1.public_info[1]["Th"], constants.NO, "Public info for asker not correct")
         self.assertEqual(p1.public_info[2]["Th"], constants.YES, "Public info for target not correct")
 
-    def test_update_successful_transaction_2(self):
-        own_hand = ["5h", "7h", "Jh", "2d", "Ad", "8c", "SJ", "6s", "6c"]
-        p1 = Player.player_start_of_game(0, own_hand)
-        p1.update_transaction(3, 4, "9c", False)
-        p1.update_transaction(4, 3, "Tc", False)
-        p1.update_transaction(3, 4, "Jc", False)
-        p1.update_transaction(4, 3, "Qc", False)
-        for ID in [3, 4]:
-            for card in ["Kc", "Ac"]:
-                self.assertEqual(p1.info[ID][card], constants.UNSURE, "Not enough info to know about p{}'s status of {}".format(ID, card))
-            self.assertEqual(p1.hs_info[ID]["Hc"], 1, "player 3 has incorrect half suit info")
-            for card in ["9c", "Tc", "Jc", "Qc"]:
-                self.assertEqual(p1.info[ID][card], constants.NO, "Did not update p{}'s {}".format(ID, card))
-
     def test_update_failed_transaction(self):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
         p1 = Player.player_start_of_game(1, own_hand)
@@ -129,6 +115,33 @@ class TestPlayer(unittest.TestCase):
         self.assertEqual(p1.hs_info[2]["Hh"], 1, "Other player's half suit info not updated correctly")
         self.assertEqual(p1.public_info[1]["Jh"], constants.NO, "Own info not updated correctly")
         self.assertEqual(p1.public_info[2]["Jh"], constants.NO, "Other player's info not updated correctly")
+
+    def test_update_multiple_transaction(self):
+        own_hand = ["5h", "7h", "Jh", "2d", "Ad", "8c", "SJ", "6s", "6c"]
+        p1 = Player.player_start_of_game(0, own_hand)
+        p1.update_transaction(3, 4, "9c", False)
+        p1.update_transaction(4, 3, "Tc", False)
+        p1.update_transaction(3, 4, "Jc", False)
+        p1.update_transaction(4, 3, "Qc", False)
+        for ID in [3, 4]:
+            for card in ["Kc", "Ac"]:
+                self.assertEqual(p1.info[ID][card], constants.UNSURE, "Not enough info to know about p{}'s status of {}".format(ID, card))
+            self.assertEqual(p1.hs_info[ID]["Hc"], 1, "player {} has incorrect half suit info".format(ID))
+            for card in ["9c", "Tc", "Jc", "Qc"]:
+                self.assertEqual(p1.info[ID][card], constants.NO, "Did not update p{}'s {}".format(ID, card))
+
+    def test_update_multiple_transaction_2(self):
+        own_hand = ["5h", "7h", "Jh", "2d", "Ad", "8c", "SJ", "6s", "6c"]
+        p1 = Player.player_start_of_game(0, own_hand)
+        p1.update_transaction(3, 4, "9c", True)
+        p1.update_transaction(4, 3, "9c", True)
+        for ID in [3, 4]:
+            for card in ["Tc", "Jc", "Qc", "Kc", "Ac"]:
+                self.assertEqual(p1.info[ID][card], constants.UNSURE, "Not enough info to know about p{}'s status of {}".format(ID, card))
+        self.assertEqual(p1.hs_info[3]["Hc"], 1, "player 3 has incorrect half suit info")
+        self.assertEqual(p1.hs_info[4]["Hc"], 2, "player 4 has incorrect half suit info")
+        self.assertEqual(p1.info[3]["9c"], constants.NO, "4 did not take back 3's 9c")
+        self.assertEqual(p1.info[4]["9c"], constants.YES, "4 did not take back 3's 9c")
 
     def test_update_call(self):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
@@ -213,24 +226,41 @@ class TestGame(unittest.TestCase):
 
     def test_update_call(self):
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
-                                 0, 0, 0)
+                                 0, 4, 3)
         specific_game.report_call("Lh")
         cards_remaining = [["9h"], ["Th"], ["Jh"], ["Qh"], ["Kh"], ["Ah"]]
         for i in range(6):
             self.assertEqual(specific_game.players[i].own_cards(), cards_remaining[i],
                              "Player {} has the wrong cards".format(i))
 
-    def test_update_ask(self):
+    def test_update_ask_successful(self):
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
                                  0, 0, 0)
         specific_game.report_ask(0, 1, "3h", True)
         self.assertIn("3h", specific_game.players[0].own_cards(), "3h was not successfully received")
+        self.assertIn("3h", specific_game.player_cards[0], "3h was not successfully added to player 0 cards")
         self.assertNotIn("3h", specific_game.players[1].own_cards(), "3h was not successfully taken")
+        self.assertNotIn("3h", specific_game.player_cards[1], "3h was not removed from player 1 cards")
         for i in range(2, 6):
             self.assertEqual(specific_game.players[i].info[0]["3h"], constants.YES,
-                             "Other players don't know about the transaction")
+                             "Player {} doesn't know about the transaction".format(i))
             self.assertEqual(specific_game.players[i].info[1]["3h"], constants.NO,
-                             "Other players don't know about the transaction")
+                             "Player {} doesn't know about the transaction".format(i))
+
+    def test_update_ask_unsuccessful(self):
+        specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
+                                 0, 0, 0)
+        specific_game.report_ask(0, 1, "Jh", False)
+        self.assertNotIn("Jh", specific_game.players[0].own_cards(), "Jh was incorrectly received")
+        self.assertNotIn("Jh", specific_game.player_cards[0], "Jh was incorrectly added to player 0's cards")
+        self.assertNotIn("Jh", specific_game.players[1].own_cards(), "Jh was added to player 1 even though they didn't have the card")
+        self.assertNotIn("Jh", specific_game.player_cards[1], "Jh was added to player 1 even though they didn't have the card")
+        for i in range(2, 6):
+            self.assertEqual(specific_game.players[i].info[0]["Jh"], constants.NO,
+                             "Player {} doesn't know about the transaction".format(i))
+            self.assertEqual(specific_game.players[i].info[1]["Jh"], constants.NO,
+                             "Player {} doesn't know about the transaction".format(i))
+
 
     def test_play_random_fish_game(self):
         game = FishGame.start_random_game()
