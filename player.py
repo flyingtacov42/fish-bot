@@ -1,6 +1,7 @@
 import card_utils
 import random
 from constants import YES, NO, UNSURE
+import copy
 
 
 class Player:
@@ -38,21 +39,21 @@ class Player:
     Determine whether to call, and which half suit
     """
 
-    def __init__(self, ID, num_cards, info, public_info, hs_info, name=None):
+    def __init__(self, ID, num_cards, info, public_info, hs_info, public_hs_info, remaining_hs, name=None):
         """
         Initializes the player with the information:
         :param ID: a number in the range 0-5 that denotes the team of the player.
         IDs are universally agreed on by all players
         ID numbers 1, 3, and 5 are on 1 team
-
         :param Num_cards:
         A dictionary that stores the id of the player and how many cards each player has
-
-        :param hs_info: A dictionary that stores the number of cards that each player has in
-        each half suit
-
+        :param info: Info dictionary defined above
+        :param public_info: A dictionary that stores the public information available
+        to all players as defined above
+        :param hs_info: Defined above
+        :param public_hs_info: public info dictionary for half suit information
+        :param remaining_hs: A list of all the called half suits
         :param Name: The name of the player. This field is not relevant to the logic in the game.
-
         Since each player knows their own cards, the section of the dictionary corresponding
         to their own id will be completely determined (YES or NO)
         """
@@ -62,6 +63,8 @@ class Player:
         self.info = info
         self.public_info = public_info
         self.hs_info = hs_info
+        self.public_hs_info = public_hs_info
+        self.remaining_hs = remaining_hs
         self._update_info()
         self._update_public_info()
 
@@ -74,7 +77,9 @@ class Player:
         num_cards = {x: 9 for x in range(6)}
         return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards),
                    cls._init_public_info_start_game(),
-                   cls._init_hs_info_start_game(ID, own_cards), name=name)
+                   cls._init_hs_info_start_game(ID, own_cards),
+                   cls._init_public_hs_info_start_game(),
+                   list(card_utils.gen_all_halfsuits()), name=name)
 
     @staticmethod
     def _init_info_start_game(ID, own_cards):
@@ -119,83 +124,126 @@ class Player:
             hs_info[ID][card_utils.find_half_suit(card)] += 1
         return hs_info
 
-    def _update_info(self):
+    @staticmethod
+    def _init_public_hs_info_start_game():
         """
-        Updates the info dictionary based on information already in the info dictionary
-        For example, if a player has a certain card, you can be sure that no one else has that card
-        Also, if 5 people are guarenteed not to have a card, the sixth person must have that card
-
-        If a person is guarenteed to have a card in a half suit (based on what they ask for), and there is 
-        only one card in that half suit left that isn't ruled out, then they have to have that card
-
-        This method will also throw an exception if there is contradictory information, 
-        such as 2 players both having the same card
+        Returns the public half suit info at the start of a game
+        (This is just an empty dictionary)
         """
-        # First update Yes -> No for other players
-        # And 5 Nos -> Yes for 1 player
-        for card in card_utils.gen_all_cards():
-            id_exists = -1
-            id_unsures = list(range(6))
-            for ID in range(6):
-                if self.info[ID][card] == YES:
-                    id_exists = ID
-                elif self.info[ID][card] == NO:
-                    id_unsures.remove(ID)
-            # Yes -> Nos for everyone else scenario
-            if id_exists != -1:
-                for ID in range(6):
-                    if ID != id_exists:
-                        if self.info[ID][card] == YES:
-                            raise Exception("Two or more players have the card " + card)
-                        self.info[ID][card] = NO
-            # 5 Nos -> Yes scenario
-            elif len(id_unsures) == 1:
-                self.info[id_unsures[0]][card] = YES
-
-        # Now check for when a player has a known half suit but not all known cards in that hs
-        for hs in card_utils.gen_all_halfsuits():
-            for ID in range(6):
-                cards = card_utils.find_cards(hs)
-                no_count = 0
-                for c in cards:
-                    if self.info[ID][c] == NO:
-                        no_count += 1
-                if no_count == 6 - self.hs_info[ID][hs]:
-                    for c in cards:
-                        if self.info[ID][c] != NO:
-                            self.info[ID][c] = YES
-                if no_count > 6 - self.hs_info[ID][hs]:
-                    raise Exception("Player {} should have at least {} cards in the half suit, but doesn't"
-                                    .format(ID, self.hs_info[ID][hs]))
-
-        # Next check if unsures = num cards left
+        public_hs_info = {}
         for ID in range(6):
-            unsures = []
-            for c in card_utils.gen_all_cards():
-                if self.info[ID][c] == UNSURE:
-                    unsures.append(c)
-            if self.num_cards[ID] == len(unsures):
-                for c in unsures:
-                    self.info[ID][c] = YES
+            d = {}
+            for hs in card_utils.gen_all_halfsuits():
+                d[hs] = 0
+            public_hs_info[ID] = d
+        return public_hs_info
 
-    def _update_public_info(self):
+    def _update_info(self, check_cards=tuple(card_utils.gen_all_cards())):
+        self.info = self._update_recurse(copy.deepcopy(self.info), self.remaining_hs,
+                                         self.hs_info, self.num_cards, check_cards=check_cards)
+
+    def _update_public_info(self, check_cards=tuple(card_utils.gen_all_cards())):
+        self.public_info = self._update_recurse(copy.deepcopy(self.public_info), self.remaining_hs,
+                                                self.public_hs_info, self.num_cards, check_cards=check_cards)
+
+    @staticmethod
+    def _update_recurse(info_dict, remaining_hs, hs_info, num_cards, check_cards):
         """
-        Updates the public info dictionary, using the same logic as
-        in the _update_info method
-        Note that we don't need to update based on half suit information
-        because half suit information is determined by public info
+        Recursively updates entries in an info dictionary to YES or NO
+        This method works by assuming either YES or NO for all unsure cards
+        then checking for contradictions
+        If there is a contradiction, the other option must be correct
+        If there is no contradiction for either YES or NO, then leave as UNSURE
+
+        This function is expensive!
+        :param info_dict: either a public info dict or player info dict
+        :param remaining_hs: remaining half suits
+        :param hs_info: half suit info
+        :param num_cards: each players number of cards
+        :param check_cards: list of cards to check for updates to info
+        :return: an updated info dictionary
         """
-        for card in card_utils.gen_all_cards():
-            id_exists = -1
+        changed = True
+        while changed:
+            changed = False
             for ID in range(6):
-                if self.public_info[ID][card] == YES:
-                    id_exists = ID
-            if id_exists != -1:
+                for c in check_cards:
+                    if info_dict[ID][c] == UNSURE:
+                        res = UNSURE
+                        info_dict[ID][c] = YES
+                        if not Player._is_consistent(info_dict, remaining_hs, hs_info, num_cards, check_cards):
+                            res = NO
+                            changed = True
+                        info_dict[ID][c] = NO
+                        if not Player._is_consistent(info_dict, remaining_hs, hs_info, num_cards, check_cards):
+                            res = YES
+                            changed = True
+                        info_dict[ID][c] = res
+        return info_dict
+
+    @staticmethod
+    def _is_consistent(info_dict, remaining_hs, hs_info, num_cards, check_cards=tuple(card_utils.gen_all_cards())):
+        """
+        Checks if an info dictionary is consistent. If the info dictionary
+        has a contradiction, returns false. Otherwise returns true.
+
+        Info dictionaries must follow these rules:
+        1. No two players can have YES for the same card
+        2. If the half suit has not been called yet, at least 1 player
+        must have at least the possibility of having any card
+        in that half suit
+        3. If a player has at least X cards in a half suit, they cannot have
+        more than 6-X cards being NO in that half suit
+        4. If a player has X cards in their hand, they cannot have more than
+        54-X cards being NO
+        :param info_dict: either a public info dict or player info dict
+        :param remaining_hs: the remaining half suits in the game
+        :param hs_info: the half suit info
+        :param num_cards: number of each players cards
+        :param check_cards: cards to check for consistency
+        :return: True if consistent, false otherwise
+        """
+        # Calculate check_hs based on check_cards
+        check_hs = set([])
+        for c in check_cards:
+            hs = card_utils.find_half_suit(c)
+            if hs not in check_hs and hs in remaining_hs:
+                check_hs.add(hs)
+        # Rule 1
+        for card in check_cards:
+            players_yes = 0
+            for ID in range(6):
+                if info_dict[ID][card] == YES:
+                    players_yes += 1
+            if players_yes > 1:
+                return False
+        # Rule 2
+        for hs in check_hs:
+            for card in card_utils.find_cards(hs):
+                players_no = 0
                 for ID in range(6):
-                    if ID != id_exists:
-                        if self.public_info[ID][card] == YES:
-                            raise Exception("Two or more players have the card " + card)
-                        self.public_info[ID][card] = NO
+                    if info_dict[ID][card] == NO:
+                        players_no += 1
+                if players_no == 6:
+                    return False
+        # Rule 3
+        for hs in check_hs:
+            for ID in range(6):
+                hs_no_count = 0
+                for card in card_utils.find_cards(hs):
+                    if info_dict[ID][card] == NO:
+                        hs_no_count += 1
+                if hs_info[ID][hs] + hs_no_count > 6:
+                    return False
+        # Rule 4
+        for ID in range(6):
+            no_count = 0
+            for card in card_utils.gen_all_cards():
+                if info_dict[ID][card] == NO:
+                    no_count += 1
+            if num_cards[ID] + no_count > 54:
+                return False
+        return True
 
     def update_transaction(self, ID_ask, ID_target, card, success):
         """
@@ -216,8 +264,13 @@ class Player:
             if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
                 self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
             self.hs_info[ID_ask][card_utils.find_half_suit(card)] += 1
+            if self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
+                self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
+            self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] += 1
             if self.hs_info[ID_target][card_utils.find_half_suit(card)] > 0:
                 self.hs_info[ID_target][card_utils.find_half_suit(card)] -= 1
+            if self.public_hs_info[ID_target][card_utils.find_half_suit(card)] > 0:
+                self.public_hs_info[ID_target][card_utils.find_half_suit(card)] -= 1
         else:
             self.info[ID_ask][card] = NO
             self.info[ID_target][card] = NO
@@ -225,8 +278,10 @@ class Player:
             self.public_info[ID_target][card] = NO
             if self.hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
                 self.hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
-        self._update_info()
-        self._update_public_info()
+            if self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] == 0:
+                self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
+        self._update_info(card_utils.find_cards(card_utils.find_half_suit(card)))
+        self._update_public_info(card_utils.find_cards(card_utils.find_half_suit(card)))
 
     def update_call(self, hs, card_count_hs):
         """
@@ -239,11 +294,13 @@ class Player:
 
         Note that there's no difference whether the call succeeds or fails!
         """
+        self.remaining_hs.remove(hs)
         for ID in range(6):
             for card in card_utils.find_cards(hs):
                 self.info[ID][card] = NO
                 self.public_info[ID][card] = NO
             self.hs_info[ID][hs] = 0
+            self.public_hs_info[ID][hs] = 0
             self.num_cards[ID] -= card_count_hs[ID]
         self._update_info()
         self._update_public_info()
