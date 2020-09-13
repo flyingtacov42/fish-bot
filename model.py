@@ -34,7 +34,8 @@ class FishDecisionMaker(keras.Sequential):
         self.rewards_history = []
         self.done_history = []
 
-    def update_data(self, info, hs_info, num_cards, public_info, ID_ask, ID_target, card, success, done):
+    def update_data(self, info, hs_info, num_cards, public_info, public_hs_info,
+                    ID_ask, ID_target, card, success):
         """
         Updates the history lists of the model, given a transaction and state
         :param info: defined in Player class
@@ -47,19 +48,20 @@ class FishDecisionMaker(keras.Sequential):
         :param success: Was the ask successful
         :param done: has the game finished?
         """
-        self.state_history.append(self.generate_state_vector(info, hs_info, num_cards, public_info, ID_ask))
+        self.state_history.append(self.generate_state_vector(info, hs_info, num_cards, public_info,
+                                                             public_hs_info, ID_ask))
         self.action_history.append(self.generate_action_number(ID_ask, ID_target, card))
         self.rewards_history.append(self.generate_reward_ask(success))
-        self.done_history.append(self.done)
+        self.done_history.append(False)
 
 
     @staticmethod
-    def generate_state_vector(info, hs_info, num_cards, public_info, ID_player):
+    def generate_state_vector(info, hs_info, num_cards, public_info, public_hs_info, ID_player):
         """
         Generates a state vector from the player's information
 
         The structure of the state vector is as follows:
-        Length: 708 (SIZE_STATES)
+        Length: 762 (SIZE_STATES)
         The order of players in each section starts with the ID of the player
         and counts up mod 6 (example: 3, 4, 5, 0, 1, 2)
         The order of cards is defined in card_utils.gen_all_cards
@@ -92,6 +94,10 @@ class FishDecisionMaker(keras.Sequential):
         for ID in player_order:
             for hs in card_utils.gen_all_halfsuits():
                 state.append(hs_info[ID][hs])
+        # Public half suit info dict
+        for ID in player_order:
+            for hs in card_utils.gen_all_halfsuits():
+                state.append(public_hs_info[ID][hs])
         # Num cards
         for ID in player_order:
             state.append(num_cards[ID])
@@ -125,6 +131,12 @@ class FishDecisionMaker(keras.Sequential):
             return constants.REWARD_SUCCESSFUL_ASK
         return constants.REWARD_UNSUCCESSFUL_ASK
 
+    def update_game_done(self, win):
+        self.done_history[-1] = True
+        if win:
+            self.rewards_history[-1] = constants.REWARD_WIN
+        else:
+            self.rewards_history[-1] = constants.REWARD_LOSE
 
 
 

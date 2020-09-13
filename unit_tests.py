@@ -334,9 +334,9 @@ class TestModel(unittest.TestCase):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
         player = Player.player_start_of_game(0, own_hand)
         state_vector_res = FishDecisionMaker.generate_state_vector(player.info, player.hs_info, player.num_cards,
-                                                                   player.public_info, 0)
+                                                                   player.public_info, player.public_hs_info, 0)
         state_vector_expected = []
-        for i in range(6):
+        for i in range(6): # info
             for c in card_utils.gen_all_cards():
                 if i == 0 and c in own_hand:
                     state_vector_expected.append(constants.YES)
@@ -346,10 +346,11 @@ class TestModel(unittest.TestCase):
                     state_vector_expected.append(constants.NO)
                 else:
                     state_vector_expected.append(constants.UNSURE)
-        state_vector_expected += [constants.UNSURE for i in range(324)]
-        state_vector_expected += [0, 0, 0, 0, 6, 2, 0, 0, 1]
-        state_vector_expected += [0 for i in range(45)]
-        state_vector_expected += [9 for i in range(6)]
+        state_vector_expected += [constants.UNSURE for i in range(324)] # public info
+        state_vector_expected += [0, 0, 0, 0, 6, 2, 0, 0, 1] # your hs info
+        state_vector_expected += [0 for i in range(45)] # Rest of hs info
+        state_vector_expected += [0 for i in range(54)] # Public hs info
+        state_vector_expected += [9 for i in range(6)] # num cards
         self.assertEqual(len(state_vector_res), len(state_vector_expected), "Length of state vector not correct")
         self.assertEqual(state_vector_res, state_vector_expected, "State vector not correct")
 

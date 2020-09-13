@@ -3,6 +3,7 @@ import random
 from constants import YES, NO, UNSURE
 from exceptions import InfoDictException
 import copy
+import model
 
 
 class Player:
@@ -34,13 +35,18 @@ class Player:
     }
     Where count is the minimum number of cards a player has in a half suit
 
+    The player also stores a model for decision making and whether to train or not
+    in the parameters
+    model and train
+
     Important methods:
     Take in a Transaction object and update the info data structure with the information
     Determine the "optimal" play that it can make
     Determine whether to call, and which half suit
     """
 
-    def __init__(self, ID, num_cards, info, public_info, hs_info, public_hs_info, remaining_hs, name=None):
+    def __init__(self, ID, num_cards, info, public_info, hs_info, public_hs_info, remaining_hs,
+                 model=model.FishDecisionMaker(), train=True, name=None):
         """
         Initializes the player with the information:
         :param ID: a number in the range 0-5 that denotes the team of the player.
@@ -54,6 +60,8 @@ class Player:
         :param hs_info: Defined above
         :param public_hs_info: public info dictionary for half suit information
         :param remaining_hs: A list of all the called half suits
+        :param model: A keras model for decision making for asking
+        :param train: Is the player training
         :param Name: The name of the player. This field is not relevant to the logic in the game.
         Since each player knows their own cards, the section of the dictionary corresponding
         to their own id will be completely determined (YES or NO)
@@ -66,11 +74,13 @@ class Player:
         self.hs_info = hs_info
         self.public_hs_info = public_hs_info
         self.remaining_hs = remaining_hs
+        self.model = model
+        self.train = train
         self._update_info()
         self._update_public_info()
 
     @classmethod
-    def player_start_of_game(cls, ID, own_cards, name=None):
+    def player_start_of_game(cls, ID, own_cards, model=model.FishDecisionMaker(), train = True, name=None):
         """
         This initialization corresponds to the initialization at the start of a fish game
         Assumes that everyone has 9 cards
@@ -80,7 +90,8 @@ class Player:
                    cls._init_public_info_start_game(),
                    cls._init_hs_info_start_game(ID, own_cards),
                    cls._init_public_hs_info_start_game(),
-                   list(card_utils.gen_all_halfsuits()), name=name)
+                   list(card_utils.gen_all_halfsuits()),
+                   model, train, name)
 
     @staticmethod
     def _init_info_start_game(ID, own_cards):
@@ -283,6 +294,7 @@ class Player:
                 self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
         self._update_info(card_utils.find_cards(card_utils.find_half_suit(card)))
         self._update_public_info(card_utils.find_cards(card_utils.find_half_suit(card)))
+        self._update_model(ID_ask, ID_target, card, success)
 
     def update_call(self, hs, card_count_hs):
         """
@@ -305,6 +317,13 @@ class Player:
             self.num_cards[ID] -= card_count_hs[ID]
         self._update_info()
         self._update_public_info()
+
+    def update_gameover(self, win):
+        """
+        Updates the latest reward of the model
+        :param win: did the player win
+        """
+        self.model.update_gameover(win)
 
     def own_cards(self):
         """
@@ -463,3 +482,16 @@ class Player:
             print("Guarenteed to not have: ")
             print(" ".join(known_no))
             print()
+
+    def _update_model(self, ID_ask, ID_target, card, success):
+        """
+        Updates the model of the player based on transaction
+        This only updates the information in the model, not the actual model
+        The actual model is updated in model
+        :param ID_ask: ID of asker
+        :param ID_target: ID of target
+        :param card: card being asked
+        :param success: is the action successful
+        """
+        self.model.update_data(self.info, self.hs_info, self.num_cards, self.public_info, self.public_hs_info,
+                               ID_ask, ID_target, card, success)
