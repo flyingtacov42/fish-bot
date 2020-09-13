@@ -10,7 +10,7 @@ REWARD_WIN = 100
 REWARD_LOSE = -100
 
 # Constants for state and action tables
-SIZE_STATES = 708
+SIZE_STATES = 762
 SIZE_ACTIONS = 162
 
 # Constants for information in info dict

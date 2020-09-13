@@ -409,6 +409,26 @@ class Player:
                 return call
         return False
 
+    def force_call(self, hs):
+        """
+        Forces the player to call the half suit hs.
+        Typically this happens at the end of the game
+        :param hs: half suit that is being forced
+        :return: A "call" list of tuples
+        [(player, card), (player, card) ...]
+        """
+        call = []
+        teammates = self._get_teammates()
+        for card in card_utils.find_cards(hs):
+            found = False
+            for ID in range(6):
+                if self.info[ID][card] == YES and ID in teammates:
+                    call.append((ID, teammates))
+                    found = True
+            if not found:
+                call.append(teammates[random.randint(0, 2)], call)
+        return call
+
     def _get_opponents(self):
         """
         returns the IDs of the opponents

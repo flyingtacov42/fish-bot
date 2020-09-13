@@ -59,12 +59,21 @@ class FishGame:
         for caller in self.players:
             call = caller.check_call()
             if call:
-                success = True
-                for ID, card in call:
-                    if card not in self.player_cards[ID]:
-                        success = False
-                return [card_utils.find_half_suit(card), caller.ID % 2, success]
+                return self.check_call_correct(call, caller.ID)
         return False
+
+    def check_call_correct(self, call, ID):
+        """
+        Checks if a call is correct
+        :param call: a call list of tuples
+        :param ID: ID of player calling
+        :return: hs, team, success
+        """
+        success = True
+        for ID, card in call:
+            if card not in self.player_cards[ID]:
+                success = False
+        return [card_utils.find_half_suit(card), ID % 2, success]
 
     def get_move(self):
         """
@@ -192,3 +201,29 @@ class FishGame:
             if player.own_cards():
                 return False
         return True
+
+    def force_calls(self, team):
+        """
+        Forces players on a team to call
+        :param team: team number being forced to call
+        """
+        players = [self.players[2*i + team] for i in range(3)]
+        remaining_hs = self.players[0].remaining_hs
+        for hs in remaining_hs:
+            for player in players:
+                call = player.check_call()
+                if call:
+                    hs, team, success = self.check_call_correct(call, player.ID)
+                    if success and team == 0 or not success and team == 1:
+                        self.team0_score += 1
+                    else:
+                        self.team1_score += 1
+                    self.report_call(hs)
+                    break
+            call = players[0].force_call(hs)
+            hs, team, success = self.check_call_correct(call, players[0].ID)
+            if success and team == 0 or not success and team == 1:
+                self.team0_score += 1
+            else:
+                self.team1_score += 1
+            self.report_call(hs)
