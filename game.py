@@ -11,20 +11,21 @@ class FishGame:
     Team 1: Players 1, 3, and 5
     Team 0: Players 0, 2, and 4
     """
-    def __init__(self, player_cards, start, team1_score, team0_score):
+    def __init__(self, player_cards, models, start, team1_score, team0_score):
         """
         Initializes a game with user defined starting hands
         Also makes sure that the starting configuration is valid 
         (no duplicate cards, all card strings are valid)
 
-        player_cards: a length 6 list, each element is a list of cards
+        :param player_cards: a length 6 list, each element is a list of cards
+        :param models: a list of models, in the same order as player_cards
         List is [p1cards, p2cards, etc...]
         """
         cards_seen_dict = {c: 0 for c in card_utils.gen_all_cards()}
         self.players = []
         self.player_cards = {ID: player_cards[ID] for ID in range(6)}
         for i, cards in enumerate(player_cards):
-            player = Player.player_start_of_game(i, cards)
+            player = Player.player_start_of_game(i, cards, models[i])
             self.players.append(player)
             for c in cards:
                 if c in cards_seen_dict:
@@ -39,14 +40,15 @@ class FishGame:
         self.team0_score = team0_score
 
     @classmethod
-    def start_random_game(cls):
+    def start_random_game(cls, models):
         """
         Deals 9 random cards to 6 players and assigns someone at random to start
+        :models: list of models for players
         """
         all_cards = list(card_utils.gen_all_cards())
         player_cards = random.permutation(all_cards).reshape((6, 9))
         player_cards_list = [list(x) for x in player_cards]
-        return cls(player_cards_list, random.randint(0, 6), 0, 0)
+        return cls(player_cards_list, models, random.randint(0, 6), 0, 0)
 
     def check_call(self):
         """

@@ -5,6 +5,7 @@ from tensorflow.keras import layers
 import card_utils
 import constants
 
+
 class FishDecisionMaker(keras.Sequential):
     """
     A decision maker for the player class for Fish.
@@ -19,6 +20,7 @@ class FishDecisionMaker(keras.Sequential):
 
     This model trains on data collected from virtual games
     """
+
     def __init__(self, *layers, **compile_options):
         """
         Creates the neural network with an architecture given by layers
@@ -53,7 +55,6 @@ class FishDecisionMaker(keras.Sequential):
         self.action_history.append(self.generate_action_number(ID_ask, ID_target, card))
         self.rewards_history.append(self.generate_reward_ask(success))
         self.done_history.append(False)
-
 
     @staticmethod
     def generate_state_vector(info, hs_info, num_cards, public_info, public_hs_info, ID_player):
@@ -116,7 +117,7 @@ class FishDecisionMaker(keras.Sequential):
         :param card: Card being asked
         :return: Action number (0-161)
         """
-        player_num = (((ID_target - ID_ask) % 6) - 1)//2
+        player_num = (((ID_target - ID_ask) % 6) - 1) // 2
         card_num = list(card_utils.gen_all_cards()).index(card)
         return player_num * constants.DECK_SIZE + card_num
 
@@ -132,11 +133,52 @@ class FishDecisionMaker(keras.Sequential):
         return constants.REWARD_UNSUCCESSFUL_ASK
 
     def update_game_done(self, win):
+        """
+        Changes the rewards in the final state (right before the game ends) to win or lose
+
+        Also creates a new game done state
+        :param win: did the player win
+        """
         self.done_history[-1] = True
         if win:
             self.rewards_history[-1] = constants.REWARD_WIN
         else:
             self.rewards_history[-1] = constants.REWARD_LOSE
 
-
-
+    def fit(self, history_length,
+            batch_size=None,
+            epochs=1,
+            verbose=1,
+            callbacks=None,
+            validation_split=0.,
+            validation_data=None,
+            shuffle=True,
+            class_weight=None,
+            sample_weight=None,
+            initial_epoch=0,
+            steps_per_epoch=None,
+            validation_steps=None,
+            validation_batch_size=None,
+            validation_freq=1,
+            max_queue_size=10,
+            workers=1,
+            use_multiprocessing=False):
+        """
+        Fits the model with q learning y values and states for x values
+        :param history_length: maximum number of games to fit history on
+        Other parameters are inherited from superclass
+        """
+        i = len(self.done_history) - 1
+        count = 0
+        while i > 0 and count < history_length + 1:
+            if self.done_history[i]:
+                count += 1
+            i -= 1
+        i += 1
+        x = np.array(self.state_history[i:])
+        actions = np.array(self.action_history[i:])
+        target = self.rewards_history[i:] + constants.GAMMA * np.max()
+        self.fit(x, y, batch_size, epochs, verbose, callbacks, validation_split,
+                  validation_data, shuffle, class_weight, sample_weight, initial_epoch,
+                  steps_per_epoch, validation_steps, validation_batch_size, validation_freq,
+                  max_queue_size, workers, use_multiprocessing)
