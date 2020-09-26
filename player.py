@@ -321,9 +321,9 @@ class Player:
     def update_gameover(self, win):
         """
         Updates the latest reward of the model
-        :param win: did the player win
+        :param win: True if player won, false otherwise
         """
-        self.model.update_gameover(win)
+        self.model.update_game_done(win)
 
     def own_cards(self):
         """
@@ -445,7 +445,7 @@ class Player:
                     call.append((ID, teammates))
                     found = True
             if not found:
-                call.append(teammates[random.randint(0, 2)], call)
+                call.append((teammates[random.randint(0, 2)], call))
         return call
 
     def _get_opponents(self):
@@ -494,4 +494,4 @@ class Player:
         :param success: is the action successful
         """
         self.model.update_data(self.info, self.hs_info, self.num_cards, self.public_info, self.public_hs_info,
-                               ID_ask, ID_target, card, success)
+                               ID_ask, ID_target, card, success, 0)

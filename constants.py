@@ -1,5 +1,7 @@
 # Hyperparameters for training
 GAMMA = 0.999
+MAX_HISTORY_LENGTH = 10000
+TRAINING_GAMES = 1
 
 # Rewards for training
 REWARD_SUCCESSFUL_ASK = 1
@@ -10,7 +12,7 @@ REWARD_WIN = 100
 REWARD_LOSE = -100
 
 # Constants for state and action tables
-SIZE_STATES = 762
+SIZE_STATES = 763
 SIZE_ACTIONS = 162
 
 # Constants for information in info dict

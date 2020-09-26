@@ -37,7 +37,7 @@ class FishDecisionMaker(keras.Sequential):
         self.done_history = []
 
     def update_data(self, info, hs_info, num_cards, public_info, public_hs_info,
-                    ID_ask, ID_target, card, success):
+                    ID_ask, ID_target, card, success, game_result):
         """
         Updates the history lists of the model, given a transaction and state
         :param info: defined in Player class
@@ -48,16 +48,16 @@ class FishDecisionMaker(keras.Sequential):
         :param ID_target: ID of target
         :param card: Card being asked for
         :param success: Was the ask successful
-        :param done: has the game finished?
+        :param game_result: 0 if still ongoing, 1 if won, -1 if lost
         """
         self.state_history.append(self.generate_state_vector(info, hs_info, num_cards, public_info,
-                                                             public_hs_info, ID_ask))
+                                                             public_hs_info, ID_ask, game_result))
         self.action_history.append(self.generate_action_number(ID_ask, ID_target, card))
         self.rewards_history.append(self.generate_reward_ask(success))
         self.done_history.append(False)
 
     @staticmethod
-    def generate_state_vector(info, hs_info, num_cards, public_info, public_hs_info, ID_player):
+    def generate_state_vector(info, hs_info, num_cards, public_info, public_hs_info, ID_player, game_result):
         """
         Generates a state vector from the player's information
 
@@ -79,6 +79,7 @@ class FishDecisionMaker(keras.Sequential):
         :param num_cards: defined in Player class
         :param public_info: defined in Player class
         :param ID_player: ID of the player
+        :param game_result: 0 if not determined, 1 if win, -1 if loss
         :return: a state vector
         """
         player_order = list(range(6))[ID_player:] + list(range(6))[:ID_player]
@@ -102,6 +103,7 @@ class FishDecisionMaker(keras.Sequential):
         # Num cards
         for ID in player_order:
             state.append(num_cards[ID])
+        state.append(game_result)
         return state
 
     @staticmethod
@@ -137,13 +139,21 @@ class FishDecisionMaker(keras.Sequential):
         Changes the rewards in the final state (right before the game ends) to win or lose
 
         Also creates a new game done state
-        :param win: did the player win
+        :param win: true if player won
         """
-        self.done_history[-1] = True
         if win:
             self.rewards_history[-1] = constants.REWARD_WIN
+            s = (self.state_history[-1])
+            s[-1] = 1
+            self.state_history.append(s)
         else:
             self.rewards_history[-1] = constants.REWARD_LOSE
+            s = (self.state_history[-1])
+            s[-1] = -1
+            self.state_history.append(s)
+        self.action_history.append(None)
+        self.done_history.append(True)
+        self.rewards_history.append(0)
 
     def fit(self, history_length,
             batch_size=None,
@@ -168,17 +178,38 @@ class FishDecisionMaker(keras.Sequential):
         :param history_length: maximum number of games to fit history on
         Other parameters are inherited from superclass
         """
-        i = len(self.done_history) - 1
+        start = len(self.done_history) - 1
         count = 0
-        while i > 0 and count < history_length + 1:
-            if self.done_history[i]:
+        while start > 0 and count < history_length + 1:
+            if self.done_history[start]:
                 count += 1
-            i -= 1
-        i += 1
-        x = np.array(self.state_history[i:])
-        actions = np.array(self.action_history[i:])
-        target = self.rewards_history[i:] + constants.GAMMA * np.max()
-        self.fit(x, y, batch_size, epochs, verbose, callbacks, validation_split,
+            start -= 1
+        start += 1
+        x, y = [], []
+        for i in range(start, len(self.done_history) - 1):
+            x.append(self.state_history[i])
+            target = self.rewards_history[i] + constants.GAMMA * np.max(self.predict(self.state_history[i + 1]))
+            y0 = self.predict(self.state_history[i])[0]
+            y0[self.action_history[i]] = target
+            y.append(y0)
+        super.fit(x, y, batch_size, epochs, verbose, callbacks, validation_split,
                   validation_data, shuffle, class_weight, sample_weight, initial_epoch,
                   steps_per_epoch, validation_steps, validation_batch_size, validation_freq,
                   max_queue_size, workers, use_multiprocessing)
+
+    def check_clean_memory(self, length):
+        """
+        if length of history is longer than length, delete the first
+        n games until the history is shorter than length
+        :return: True if history was deleted, else False
+        """
+        if len(self.done_history) > length:
+            start = len(self.done_history) - length
+            while not self.done_history[start]:
+                start += 1
+            self.state_history = self.state_history[start:]
+            self.action_history = self.action_history[start:]
+            self.rewards_history = self.action_history[start:]
+            self.done_history = self.done_history[start:]
+            return True
+        return False

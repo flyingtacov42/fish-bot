@@ -3,6 +3,8 @@ from game import FishGame
 from model import FishDecisionMaker
 import constants
 import card_utils
+from tensorflow.keras import Input
+from tensorflow.keras.layers import Dense
 
 class Trainer:
     """
@@ -40,16 +42,23 @@ class Trainer:
             training_game = FishGame.start_random_game(models)
             training_game.run_whole_game()
             # TODO train
-            already_trained = set([])
-            for m in models:
-                if m not in already_trained:
-                    m.fit()
-
+            if i % train_interval == 0:
+                already_trained = set([])
+                for m in models:
+                    if m not in already_trained:
+                        m.fit(1)
+                        m.check_clean_memory(constants.MAX_HISTORY_LENGTH)
+                        already_trained.add(m)
 
     def get_models(self):
         """
         Gets the models from the players
-        :return: A single model if all models are the same
-        A dictionary of models if different players have different
+        :return: A dictionary of models if different players have different
         models
         """
+        return self.models
+
+if __name__ == "__main__":
+    m = FishDecisionMaker(Input(constants.SIZE_STATES), Dense(constants.SIZE_ACTIONS))
+    trainer = Trainer({ID: m for ID in range(6)})
+    trainer.run_and_train_games(1000)

@@ -351,6 +351,7 @@ class TestModel(unittest.TestCase):
         state_vector_expected += [0 for i in range(45)] # Rest of hs info
         state_vector_expected += [0 for i in range(54)] # Public hs info
         state_vector_expected += [9 for i in range(6)] # num cards
+        state_vector_expected += [0]
         self.assertEqual(len(state_vector_res), len(state_vector_expected), "Length of state vector not correct")
         self.assertEqual(state_vector_res, state_vector_expected, "State vector not correct")
 
