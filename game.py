@@ -125,6 +125,7 @@ class FishGame:
 
     def run_whole_game(self, verbose = 0, max_turns = 1000):
         """
+        :param max_turns: Maximum number of turns to run the game
         :param verbose: Prints nothing if 0, prints the final score if 1,
         prints all calls if 2, prints all transactions and calls if 3
         Makes the players play through an entire game. This consists of first
@@ -195,6 +196,8 @@ class FishGame:
             print ("Final Score:")
             print ("Team 0: " + str(self.team0_score))
             print ("Team 1: " + str(self.team1_score))
+            print ("Game went on for {} turns".format(turns))
+        self.report_win()
         return turns > max_turns
 
     def check_game_finished(self):
@@ -231,3 +234,14 @@ class FishGame:
             else:
                 self.team1_score += 1
             self.report_call(hs)
+
+    def report_win(self):
+        """
+        Reports a win or loss to the player who has turn
+        """
+        win = False
+        if self.turn % 2 == 0 and self.team0_score > self.team1_score:
+            win = True
+        if self.turn % 2 == 1 and self.team1_score > self.team0_score:
+            win = True
+        self.players[self.turn].update_gameover(win)

@@ -3,8 +3,10 @@ from game import FishGame
 from model import FishDecisionMaker
 import constants
 import card_utils
-from tensorflow.keras import Input
+import tensorflow as tf
 from tensorflow.keras.layers import Dense
+from tensorflow.keras import Input
+from tensorflow.keras.losses import MeanSquaredError
 
 class Trainer:
     """
@@ -30,23 +32,23 @@ class Trainer:
         model_dict = {ID: fresh_model for ID in range(6)}
         return cls(model_dict)
 
-    def run_and_train_games(self, num_games, train_interval=1):
+    def run_and_train_games(self, num_games, train_interval=1, verbose=0):
         """
         Runs some number of games
         Performs a training step after each game
         :param num_games: number of games to train
         :param train_interval: interval to train games
+        :param verbose: verbosity for running games
         """
         models = [self.models[i] for i in range(6)]
         for i in range(num_games):
             training_game = FishGame.start_random_game(models)
-            training_game.run_whole_game()
-            # TODO train
+            training_game.run_whole_game(verbose=verbose)
             if i % train_interval == 0:
                 already_trained = set([])
                 for m in models:
                     if m not in already_trained:
-                        m.fit(1)
+                        m.fit_n_games(1)
                         m.check_clean_memory(constants.MAX_HISTORY_LENGTH)
                         already_trained.add(m)
 
@@ -59,6 +61,9 @@ class Trainer:
         return self.models
 
 if __name__ == "__main__":
-    m = FishDecisionMaker(Input(constants.SIZE_STATES), Dense(constants.SIZE_ACTIONS))
+    m = FishDecisionMaker(Input(shape=(constants.SIZE_STATES,)),
+                          Dense(32, activation="sigmoid"),
+                          Dense(constants.SIZE_ACTIONS, activation="relu"),
+                          optimizer='sgd', loss=MeanSquaredError())
     trainer = Trainer({ID: m for ID in range(6)})
-    trainer.run_and_train_games(1000)
+    trainer.run_and_train_games(1000, verbose=1)

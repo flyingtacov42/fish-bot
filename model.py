@@ -1,4 +1,3 @@
-import tensorflow
 import numpy as np
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -155,7 +154,7 @@ class FishDecisionMaker(keras.Sequential):
         self.done_history.append(True)
         self.rewards_history.append(0)
 
-    def fit(self, history_length,
+    def fit_n_games(self, history_length,
             batch_size=None,
             epochs=1,
             verbose=1,
@@ -184,15 +183,22 @@ class FishDecisionMaker(keras.Sequential):
             if self.done_history[start]:
                 count += 1
             start -= 1
-        start += 1
+        if start > 0:
+            start += 1
         x, y = [], []
-        for i in range(start, len(self.done_history) - 1):
-            x.append(self.state_history[i])
-            target = self.rewards_history[i] + constants.GAMMA * np.max(self.predict(self.state_history[i + 1]))
-            y0 = self.predict(self.state_history[i])[0]
-            y0[self.action_history[i]] = target
-            y.append(y0)
-        super.fit(x, y, batch_size, epochs, verbose, callbacks, validation_split,
+        for i in range(start, len(self.done_history)):
+            if not self.done_history[i]:
+                x.append(self.state_history[i])
+                print ("start: {}  current: {}   finish: {}".format(start, i, len(self.done_history)-1))
+                next_state = np.array(self.state_history[i + 1]).reshape(1, constants.SIZE_STATES)
+                target = self.rewards_history[i] + constants.GAMMA * np.max(self.predict(next_state))
+                y0 = self.predict(np.array(self.state_history[i]).reshape(1, constants.SIZE_STATES))[0]
+                y0[self.action_history[i]] = target
+                y.append(y0)
+
+        x = np.array(x)
+        y = np.array(y)
+        self.fit(x, y, batch_size, epochs, verbose, callbacks, validation_split,
                   validation_data, shuffle, class_weight, sample_weight, initial_epoch,
                   steps_per_epoch, validation_steps, validation_batch_size, validation_freq,
                   max_queue_size, workers, use_multiprocessing)
