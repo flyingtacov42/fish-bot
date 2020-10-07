@@ -166,10 +166,14 @@ class FishGame:
             # When there is 1 team left with cards, they are forced to call (for now game ends)
             num_cards = self.players[0].num_cards
             if num_cards[0] == 0 and num_cards[2] == 0 and num_cards[4] == 0:
-                self.force_calls(0)
+                if verbose >= 2:
+                    print ("Forcing calls for team 1")
+                self.force_calls(1)
                 break
             if num_cards[1] == 0 and num_cards[3] == 0 and num_cards[5] == 0:
-                self.force_calls(1)
+                if verbose >= 2:
+                    print ("Forcing calls for team 0")
+                self.force_calls(0)
                 break
             # If it's a player's turn and they have no cards, pass to the teammate on their right
             while len(self.players[self.turn].own_cards()) == 0:
