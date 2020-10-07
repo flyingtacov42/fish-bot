@@ -18,8 +18,12 @@ YES = 1
 NO = -1
 UNSURE = 0
 
-# Constants for Card Deck
+# Constants for Fish Game
 DECK_SIZE = 54
 RANK_SIZE = 13
 SUIT_SIZE = 4
 JOKERS = 2
+HS_SIZE = 6 # Half suit size
+
+NUM_PLAYERS = 6
+NUM_TEAMS = 2 # This is not used anywhere in my code yet, but may implement in the future
