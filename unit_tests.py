@@ -18,7 +18,7 @@ class TestPlayer(unittest.TestCase):
             own_info[c] = constants.YES
         expected[0] = own_info.copy()
         opp_info = {card: constants.UNSURE for card in card_utils.gen_all_cards()}
-        for i in range(1, 6):
+        for i in range(1, constants.NUM_PLAYERS):
             expected[i] = opp_info.copy()
         self.assertEqual(res, expected, "Failed in init_info_start_game")
 
@@ -28,7 +28,7 @@ class TestPlayer(unittest.TestCase):
         res = p1._init_hs_info_start_game(0, own_hand)
         expected = {}
         opp_hs_info = {hs: 0 for hs in card_utils.gen_all_halfsuits()}
-        for i in range(1, 6):
+        for i in range(1, constants.NUM_PLAYERS):
             expected[i] = opp_hs_info.copy()
         own_hs_info = {hs: 0 for hs in card_utils.gen_all_halfsuits()}
         own_hs_info["Lh"] = 6
@@ -46,7 +46,7 @@ class TestPlayer(unittest.TestCase):
     def test_init_public_hs_info_start_game(self):
         p1 = Player.player_start_of_game(0, [])
         res = p1._init_public_hs_info_start_game()
-        expected = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
+        expected = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
         self.assertEqual(res, expected, "Failed in init_public_hs_info_start_game")
 
     def test_update_info(self):
@@ -61,7 +61,7 @@ class TestPlayer(unittest.TestCase):
         opp_info = {card: constants.UNSURE for card in card_utils.gen_all_cards()}
         for c in own_hand:
             opp_info[c] = constants.NO
-        for i in range(1, 6):
+        for i in range(1, constants.NUM_PLAYERS):
             expected[i] = opp_info.copy()
         self.assertEqual(res, expected, "Failed in test_update_info")
 
@@ -78,7 +78,7 @@ class TestPlayer(unittest.TestCase):
         p1 = Player.player_start_of_game(0, own_hand)
         p1.num_cards = {0: 2, 1: 0, 2: 2, 3: 0, 4: 2, 5: 0}
         for c in card_utils.gen_all_cards():
-            for ID in range(6):
+            for ID in range(constants.NUM_PLAYERS):
                 if c not in card_utils.find_cards("Lh") or ID in p1._get_opponents():
                     p1.info[ID][c] = constants.NO
         p1.info[2]["4h"] = constants.NO
@@ -97,55 +97,55 @@ class TestPlayer(unittest.TestCase):
         p1.print_info()
 
     def test_is_consistent_duplicate_cards(self):
-        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
-        hs_info = {ID: {hs: 1 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
+        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(constants.NUM_PLAYERS)}
+        hs_info = {ID: {hs: 1 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
         info[0]["2h"] = constants.YES
         info[1]["2h"] = constants.YES
         self.assertFalse(
-            Player._is_consistent(info, list(card_utils.gen_all_halfsuits()), hs_info, {ID: 9 for ID in range(6)}),
+            Player._is_consistent(info, list(card_utils.gen_all_halfsuits()), hs_info, {ID: 9 for ID in range(constants.NUM_PLAYERS)}),
             "Failed to catch duplicate cards in _is_consistent")
 
     def test_is_consistent_all_nos(self):
-        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
-        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
-        for ID in range(6):
+        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(constants.NUM_PLAYERS)}
+        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
+        for ID in range(constants.NUM_PLAYERS):
             info[ID]["2h"] = constants.NO
-        self.assertFalse(Player._is_consistent(info, ["Lh"], hs_info, {ID: 1 for ID in range(6)}),
+        self.assertFalse(Player._is_consistent(info, ["Lh"], hs_info, {ID: 1 for ID in range(constants.NUM_PLAYERS)}),
                          "Failed to catch duplicate cards in _is_consistent")
 
     def test_is_consistent_all_nos_2(self):
-        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
-        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
+        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(constants.NUM_PLAYERS)}
+        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
         for ID in range(5):
             info[ID]["2h"] = constants.NO
-        self.assertTrue(Player._is_consistent(info, ["Lh"], hs_info, {ID: 1 for ID in range(6)}),
+        self.assertTrue(Player._is_consistent(info, ["Lh"], hs_info, {ID: 1 for ID in range(constants.NUM_PLAYERS)}),
                         "Incorrectly claimed inconsistency")
 
     def test_is_consistent_all_nos_3(self):
-        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
-        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
-        for ID in range(6):
+        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(constants.NUM_PLAYERS)}
+        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
+        for ID in range(constants.NUM_PLAYERS):
             info[ID]["2h"] = constants.NO
-        self.assertTrue(Player._is_consistent(info, ["8J"], hs_info, {ID: 1 for ID in range(6)}),
+        self.assertTrue(Player._is_consistent(info, ["8J"], hs_info, {ID: 1 for ID in range(constants.NUM_PLAYERS)}),
                         "Incorrectly claimed inconsistency")
 
     def test_is_consistent_hs(self):
-        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
-        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
+        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(constants.NUM_PLAYERS)}
+        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
         hs_info[1]["Hc"] = 4
         info[1]["9c"] = constants.NO
         info[1]["Tc"] = constants.NO
-        self.assertTrue(Player._is_consistent(info, list(card_utils.gen_all_halfsuits()), hs_info, {ID: 9 for ID in range(6)}),
+        self.assertTrue(Player._is_consistent(info, list(card_utils.gen_all_halfsuits()), hs_info, {ID: 9 for ID in range(constants.NUM_PLAYERS)}),
                         "Incorrectly claimed inconsistency")
 
     def test_is_consistent_hs_2(self):
-        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(6)}
-        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(6)}
+        info = {ID: {card: constants.UNSURE for card in card_utils.gen_all_cards()} for ID in range(constants.NUM_PLAYERS)}
+        hs_info = {ID: {hs: 0 for hs in card_utils.gen_all_halfsuits()} for ID in range(constants.NUM_PLAYERS)}
         hs_info[1]["Hc"] = 4
         info[1]["9c"] = constants.NO
         info[1]["Tc"] = constants.NO
         info[1]["Jc"] = constants.NO
-        self.assertFalse(Player._is_consistent(info, list(card_utils.gen_all_halfsuits()), hs_info, {ID: 9 for ID in range(6)}),
+        self.assertFalse(Player._is_consistent(info, list(card_utils.gen_all_halfsuits()), hs_info, {ID: 9 for ID in range(constants.NUM_PLAYERS)}),
                         "Did not claim inconsistency")
 
     def test_update_successful_transaction(self):
@@ -201,12 +201,13 @@ class TestPlayer(unittest.TestCase):
         self.assertEqual(p1.info[3]["9c"], constants.NO, "4 did not take back 3's 9c")
         self.assertEqual(p1.info[4]["9c"], constants.YES, "4 did not take back 3's 9c")
 
+    @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works for 6 players")
     def test_update_call(self):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
         p1 = Player.player_start_of_game(0, own_hand)
         p1.update_call("8J", {0: 1, 1: 0, 2: 2, 3: 0, 4: 3, 5: 0})
         self.assertEqual(p1.num_cards, {0: 8, 1: 9, 2: 7, 3: 9, 4: 6, 5: 9}, "Number of cards is incorrect")
-        for ID in range(6):
+        for ID in range(constants.NUM_PLAYERS):
             for card in card_utils.find_cards("8J"):
                 self.assertEqual(p1.info[ID][card], constants.NO, "A player still has a card in the called half suit")
             self.assertEqual(p1.hs_info[ID]["8J"], 0,
@@ -263,18 +264,20 @@ class TestPlayer(unittest.TestCase):
 class TestGame(unittest.TestCase):
 
     def test_init_random_game(self):
-        random_game = FishGame.start_random_game()
-        self.assertEqual(len(random_game.players), 6, "Number of players is not 6")
+        random_game = FishGame.start_random_game([FishDecisionMaker() for i in range(constants.NUM_PLAYERS)])
+        self.assertEqual(len(random_game.players), constants.NUM_PLAYERS, "Number of players is not " + str(constants.NUM_PLAYERS))
         all_cards_dict = {c: 0 for c in card_utils.gen_all_cards()}
-        for i in range(6):
+        for i in range(constants.NUM_PLAYERS):
             self.assertEqual(len(random_game.players[i].own_cards()), 9, "Player {} does not have 9 cards".format(i))
             for c in random_game.players[i].own_cards():
                 all_cards_dict[c] += 1
         for card, count in all_cards_dict.items():
             self.assertEqual(count, 1, "{} shows up {} times instead of once".format(card, count))
 
+    @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works for 6 players")
     def test_init_specific_game(self):
-        specific_game = FishGame([["2h"], ["3h"], ["4h"], ["5h"], ["6h"], ["7h"]], 0, 0, 0)
+        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
+        specific_game = FishGame([["2h"], ["3h"], ["4h"], ["5h"], ["6h"], ["7h"]], models, 0, 0, 0)
         self.assertEqual(specific_game.players[0].own_cards(), ["2h"], "Player ID 0 has the wrong cards")
         self.assertEqual(specific_game.players[1].own_cards(), ["3h"], "Player ID 1 has the wrong cards")
         self.assertEqual(specific_game.players[2].own_cards(), ["4h"], "Player ID 2 has the wrong cards")
@@ -282,19 +285,22 @@ class TestGame(unittest.TestCase):
         self.assertEqual(specific_game.players[4].own_cards(), ["6h"], "Player ID 4 has the wrong cards")
         self.assertEqual(specific_game.players[5].own_cards(), ["7h"], "Player ID 5 has the wrong cards")
 
+    @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works if 6 players")
     def test_update_call(self):
+        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
-                                 0, 4, 3)
+                                 models, 0, 4, 3)
         specific_game.report_call("Lh")
         cards_remaining = [["9h"], ["Th"], ["Jh"], ["Qh"], ["Kh"], ["Ah"]]
         for i in range(6):
             self.assertEqual(specific_game.players[i].own_cards(), cards_remaining[i],
                              "Player {} has the wrong cards".format(i))
 
-
+    @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works if 6 players")
     def test_update_ask_successful(self):
+        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
-                                 0, 0, 0)
+                                 models, 0, 0, 0)
         specific_game.report_ask(0, 1, "3h", True)
         self.assertIn("3h", specific_game.players[0].own_cards(), "3h was not successfully received")
         self.assertIn("3h", specific_game.player_cards[0], "3h was not successfully added to player 0 cards")
@@ -306,9 +312,11 @@ class TestGame(unittest.TestCase):
             self.assertEqual(specific_game.players[i].info[1]["3h"], constants.NO,
                              "Player {} doesn't know about the transaction".format(i))
 
+    @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works if 6 players")
     def test_update_ask_unsuccessful(self):
+        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
-                                 0, 0, 0)
+                                 models, 0, 0, 0)
         specific_game.report_ask(0, 1, "Jh", False)
         self.assertNotIn("Jh", specific_game.players[0].own_cards(), "Jh was incorrectly received")
         self.assertNotIn("Jh", specific_game.player_cards[0], "Jh was incorrectly added to player 0's cards")
@@ -321,7 +329,8 @@ class TestGame(unittest.TestCase):
                              "Player {} doesn't know about the transaction".format(i))
 
     def test_play_random_fish_game(self):
-        game = FishGame.start_random_game()
+        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
+        game = FishGame.start_random_game(models)
         max_turns = 500
         result = game.run_whole_game(verbose=2, max_turns=max_turns)
         if result:
@@ -334,9 +343,9 @@ class TestModel(unittest.TestCase):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
         player = Player.player_start_of_game(0, own_hand)
         state_vector_res = FishDecisionMaker.generate_state_vector(player.info, player.hs_info, player.num_cards,
-                                                                   player.public_info, player.public_hs_info, 0)
+                                                                   player.public_info, player.public_hs_info, 0, 0)
         state_vector_expected = []
-        for i in range(6): # info
+        for i in range(constants.NUM_PLAYERS):
             for c in card_utils.gen_all_cards():
                 if i == 0 and c in own_hand:
                     state_vector_expected.append(constants.YES)
@@ -356,7 +365,7 @@ class TestModel(unittest.TestCase):
         self.assertEqual(state_vector_res, state_vector_expected, "State vector not correct")
 
     def test_generate_action_number(self):
-        action_res = FishDecisionMaker.generate_action_number(3, 6, "BJ")
+        action_res = FishDecisionMaker.generate_action_number(2, 5, "BJ")
         self.assertEqual(action_res, 107)
 
 

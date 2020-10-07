@@ -2,10 +2,11 @@ from player import Player
 import card_utils
 import numpy.random as random
 from exceptions import InfoDictException, GameConfigException
+from constants import NUM_PLAYERS
 
 class FishGame:
     """
-    An instance of a fish game between 6 players.
+    An instance of a fish game between NUM_PLAYERS players.
 
     There are 2 teams:
     Team 1: Players 1, 3, and 5
@@ -16,14 +17,13 @@ class FishGame:
         Initializes a game with user defined starting hands
         Also makes sure that the starting configuration is valid 
         (no duplicate cards, all card strings are valid)
-
-        :param player_cards: a length 6 list, each element is a list of cards
-        :param models: a list of models, in the same order as player_cards
+        :param player_cards: a length NUM_PLAYERS list, each element is a list of cards
         List is [p1cards, p2cards, etc...]
+        :param models: a list of models, in the same order as player_cards
         """
         cards_seen_dict = {c: 0 for c in card_utils.gen_all_cards()}
         self.players = []
-        self.player_cards = {ID: player_cards[ID] for ID in range(6)}
+        self.player_cards = {ID: player_cards[ID] for ID in range(NUM_PLAYERS)}
         for i, cards in enumerate(player_cards):
             player = Player.player_start_of_game(i, cards, models[i])
             self.players.append(player)
@@ -42,13 +42,13 @@ class FishGame:
     @classmethod
     def start_random_game(cls, models):
         """
-        Deals 9 random cards to 6 players and assigns someone at random to start
-        :models: list of models for players
+        Deals 9 random cards to NUM_PLAYERS players and assigns someone at random to start
+        :param models: list of models for players
         """
         all_cards = list(card_utils.gen_all_cards())
-        player_cards = random.permutation(all_cards).reshape((6, 9))
+        player_cards = random.permutation(all_cards).reshape((NUM_PLAYERS, 9))
         player_cards_list = [list(x) for x in player_cards]
-        return cls(player_cards_list, models, random.randint(0, 6), 0, 0)
+        return cls(player_cards_list, models, random.randint(0, NUM_PLAYERS), 0, 0)
 
     def check_call(self):
         """
@@ -99,9 +99,9 @@ class FishGame:
         Makes each player update their info in response to a call
         :param hs: half suit being called
         """
-        hs_info_dict = {ID: 0 for ID in range(6)}
+        hs_info_dict = {ID: 0 for ID in range(NUM_PLAYERS)}
         for card in card_utils.find_cards(hs):
-            for ID in range(6):
+            for ID in range(NUM_PLAYERS):
                 if card in self.player_cards[ID]:
                     self.player_cards[ID].remove(card)
                     hs_info_dict[ID] += 1
@@ -125,13 +125,13 @@ class FishGame:
 
     def run_whole_game(self, verbose = 0, max_turns = 1000):
         """
-        :param max_turns: Maximum number of turns to run the game
-        :param verbose: Prints nothing if 0, prints the final score if 1,
-        prints all calls if 2, prints all transactions and calls if 3
         Makes the players play through an entire game. This consists of first
         asking for anyone who wants to call on each round. Then, if no one
         wants to call, the game asks for the player who has the turn to request
         a card. Plays until everyone is out of cards
+        :param max_turns: longest a game can go on before game is forced to end
+        :param verbose: Prints nothing if 0, prints the final score if 1,
+        prints all calls if 2, prints all transactions and calls if 3
         :return: True if game goes on longer than 1000 turns and False otherwise
         """
         turns = 0
@@ -154,7 +154,7 @@ class FishGame:
                 except InfoDictException as err:
                     print(err)
                     print ("Failed in updating calling")
-                    for i in range(6):
+                    for i in range(NUM_PLAYERS):
                         print (self.player_cards[i], self.players[i].own_cards())
                     break
                 if success and team == 1 or not success and team == 0:
@@ -173,7 +173,7 @@ class FishGame:
                 break
             # If it's a player's turn and they have no cards, pass to the teammate on their right
             while len(self.players[self.turn].own_cards()) == 0:
-                self.turn = (self.turn + 2) % 6
+                self.turn = (self.turn + 2) % NUM_PLAYERS
 
             # Now get the player who has turn's request
             if not self.check_game_finished():
@@ -188,7 +188,7 @@ class FishGame:
                 except InfoDictException as err:
                     print (err)
                     print ("Failed in updating ask")
-                    for i in range(6):
+                    for i in range(NUM_PLAYERS):
                         print(self.player_cards[i], self.players[i].own_cards())
                     break
                 turns += 1
@@ -214,7 +214,7 @@ class FishGame:
         Forces players on a team to call
         :param team: team number being forced to call
         """
-        players = [self.players[2*i + team] for i in range(3)]
+        players = [self.players[2 * i + team] for i in range(3)]
         remaining_hs = self.players[0].remaining_hs
         for hs in remaining_hs:
             for player in players:
