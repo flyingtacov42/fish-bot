@@ -1,6 +1,6 @@
 import card_utils
 import random
-from constants import YES, NO, UNSURE
+from constants import YES, NO, UNSURE, NUM_PLAYERS, DECK_SIZE, HS_SIZE
 from exceptions import InfoDictException
 import copy
 
@@ -12,7 +12,7 @@ class Player:
 
     id: the id of the Player (0-5)
     name: the name of the player (This is technically meaningless for the game state)
-    num_cards: the number of cards that each of the 6 players have
+    num_cards: the number of cards that each of the NUM_PLAYERS players have
     info: a dictionary that stores the "status" of the cards for each player
     hs_info: a dictionary that stores at least how many cards of each half suit each player has
 
@@ -75,7 +75,7 @@ class Player:
         This initialization corresponds to the initialization at the start of a fish game
         Assumes that everyone has 9 cards
         """
-        num_cards = {x: 9 for x in range(6)}
+        num_cards = {x: 9 for x in range(NUM_PLAYERS)}
         return cls(ID, num_cards, cls._init_info_start_game(ID, own_cards),
                    cls._init_public_info_start_game(),
                    cls._init_hs_info_start_game(ID, own_cards),
@@ -89,7 +89,7 @@ class Player:
         Given your own cards and ID
         """
         info = {}
-        for player_id in range(6):
+        for player_id in range(NUM_PLAYERS):
             if player_id == ID:
                 player_cards = {card: NO for card in card_utils.gen_all_cards()}
                 for card in own_cards:
@@ -106,7 +106,7 @@ class Player:
         :return: a dictionary that represents the public information at the start of the game
         """
         public_info_dict = {}
-        for ID in range(6):
+        for ID in range(NUM_PLAYERS):
             player_info = {}
             for card in card_utils.gen_all_cards():
                 player_info[card] = UNSURE
@@ -120,7 +120,7 @@ class Player:
         Uses data from the already intialized info dictionary
         """
         blank_hs = {hs: 0 for hs in card_utils.gen_all_halfsuits()}
-        hs_info = {player_id: blank_hs.copy() for player_id in range(6)}
+        hs_info = {player_id: blank_hs.copy() for player_id in range(NUM_PLAYERS)}
         for card in own_cards:
             hs_info[ID][card_utils.find_half_suit(card)] += 1
         return hs_info
@@ -132,7 +132,7 @@ class Player:
         (This is just an empty dictionary)
         """
         public_hs_info = {}
-        for ID in range(6):
+        for ID in range(NUM_PLAYERS):
             d = {}
             for hs in card_utils.gen_all_halfsuits():
                 d[hs] = 0
@@ -167,7 +167,7 @@ class Player:
         changed = True
         while changed:
             changed = False
-            for ID in range(6):
+            for ID in range(NUM_PLAYERS):
                 for c in check_cards:
                     if info_dict[ID][c] == UNSURE:
                         res = UNSURE
@@ -194,9 +194,9 @@ class Player:
         must have at least the possibility of having any card
         in that half suit
         3. If a player has at least X cards in a half suit, they cannot have
-        more than 6-X cards being NO in that half suit
+        more than HS_SIZE-X cards being NO in that half suit
         4. If a player has X cards in their hand, they cannot have more than
-        54-X cards being NO
+        DECK_SIZE-X cards being NO
         :param info_dict: either a public info dict or player info dict
         :param remaining_hs: the remaining half suits in the game
         :param hs_info: the half suit info
@@ -213,7 +213,7 @@ class Player:
         # Rule 1
         for card in check_cards:
             players_yes = 0
-            for ID in range(6):
+            for ID in range(NUM_PLAYERS):
                 if info_dict[ID][card] == YES:
                     players_yes += 1
             if players_yes > 1:
@@ -222,27 +222,27 @@ class Player:
         for hs in check_hs:
             for card in card_utils.find_cards(hs):
                 players_no = 0
-                for ID in range(6):
+                for ID in range(NUM_PLAYERS):
                     if info_dict[ID][card] == NO:
                         players_no += 1
-                if players_no == 6:
+                if players_no == NUM_PLAYERS:
                     return False
         # Rule 3
         for hs in check_hs:
-            for ID in range(6):
+            for ID in range(NUM_PLAYERS):
                 hs_no_count = 0
                 for card in card_utils.find_cards(hs):
                     if info_dict[ID][card] == NO:
                         hs_no_count += 1
-                if hs_info[ID][hs] + hs_no_count > 6:
+                if hs_info[ID][hs] + hs_no_count > HS_SIZE:
                     return False
         # Rule 4
-        for ID in range(6):
+        for ID in range(NUM_PLAYERS):
             no_count = 0
             for card in card_utils.gen_all_cards():
                 if info_dict[ID][card] == NO:
                     no_count += 1
-            if num_cards[ID] + no_count > 54:
+            if num_cards[ID] + no_count > DECK_SIZE:
                 return False
         return True
 
@@ -296,7 +296,7 @@ class Player:
         Note that there's no difference whether the call succeeds or fails!
         """
         self.remaining_hs.remove(hs)
-        for ID in range(6):
+        for ID in range(NUM_PLAYERS):
             for card in card_utils.find_cards(hs):
                 self.info[ID][card] = NO
                 self.public_info[ID][card] = NO
@@ -405,7 +405,7 @@ class Player:
                 for ID in self._get_teammates():
                     if self.info[ID][card] == YES:
                         call.append((ID, card))
-            if len(call) == 6:
+            if len(call) == HS_SIZE:
                 return call
         return False
 
@@ -421,12 +421,12 @@ class Player:
         teammates = self._get_teammates()
         for card in card_utils.find_cards(hs):
             found = False
-            for ID in range(6):
+            for ID in range(NUM_PLAYERS):
                 if self.info[ID][card] == YES and ID in teammates:
                     call.append((ID, teammates))
                     found = True
             if not found:
-                call.append(teammates[random.randint(0, 2)], call)
+                call.append(teammates[random.randint(0, len(teammates)-1)], call)
         return call
 
     def _get_opponents(self):
@@ -434,19 +434,19 @@ class Player:
         returns the IDs of the opponents
         """
         if self.ID % 2 == 0:
-            return 1, 3, 5
-        return 0, 2, 4
+            return tuple(range(1, NUM_PLAYERS, 2))
+        return tuple(range(0, NUM_PLAYERS, 2))
 
     def _get_teammates(self):
         """
         returns the ID of your teammates
         """
         if self.ID % 2 == 0:
-            return 0, 2, 4
-        return 1, 3, 5
+            return tuple(range(0, NUM_PLAYERS, 2))
+        return tuple(range(1, NUM_PLAYERS, 2))
 
     def print_info(self):
-        for ID in range(6):
+        for ID in range(NUM_PLAYERS):
             if self.ID == ID:
                 print("Player {} (You)".format(ID))
             else:
