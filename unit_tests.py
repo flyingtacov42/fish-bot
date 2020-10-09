@@ -4,6 +4,7 @@ import card_utils
 from game import FishGame
 from model import FishDecisionMaker
 import constants
+import copy
 
 
 class TestPlayer(unittest.TestCase):
@@ -298,9 +299,9 @@ class TestGame(unittest.TestCase):
 
     @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works if 6 players")
     def test_update_ask_successful(self):
-        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
+        models = [FishDecisionMaker(applicable_players=(0,)) for i in range(constants.NUM_PLAYERS)]
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
-                                 models, 0, 0, 0)
+                                 models, 0, 0, 0, train=False)
         specific_game.report_ask(0, 1, "3h", True)
         self.assertIn("3h", specific_game.players[0].own_cards(), "3h was not successfully received")
         self.assertIn("3h", specific_game.player_cards[0], "3h was not successfully added to player 0 cards")
@@ -314,9 +315,9 @@ class TestGame(unittest.TestCase):
 
     @unittest.skipIf(constants.NUM_PLAYERS != 6, "only works if 6 players")
     def test_update_ask_unsuccessful(self):
-        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
+        models = [FishDecisionMaker(applicable_players=(0,)) for i in range(constants.NUM_PLAYERS)]
         specific_game = FishGame([["2h", "9h"], ["3h", "Th"], ["4h", "Jh"], ["5h", "Qh"], ["6h", "Kh"], ["7h", "Ah"]],
-                                 models, 0, 0, 0)
+                                 models, 0, 0, 0, train=False)
         specific_game.report_ask(0, 1, "Jh", False)
         self.assertNotIn("Jh", specific_game.players[0].own_cards(), "Jh was incorrectly received")
         self.assertNotIn("Jh", specific_game.player_cards[0], "Jh was incorrectly added to player 0's cards")
@@ -329,8 +330,8 @@ class TestGame(unittest.TestCase):
                              "Player {} doesn't know about the transaction".format(i))
 
     def test_play_random_fish_game(self):
-        models = [FishDecisionMaker() for i in range(constants.NUM_PLAYERS)]
-        game = FishGame.start_random_game(models)
+        models = [FishDecisionMaker(applicable_players=tuple(range(constants.NUM_PLAYERS))) for i in range(constants.NUM_PLAYERS)]
+        game = FishGame.start_random_game(models, train=False)
         max_turns = 500
         result = game.run_whole_game(verbose=2, max_turns=max_turns)
         if result:
@@ -367,6 +368,41 @@ class TestModel(unittest.TestCase):
     def test_generate_action_number(self):
         action_res = FishDecisionMaker.generate_action_number(2, 5, "BJ")
         self.assertEqual(action_res, 107)
+
+    def test_create_new_histories(self):
+        model = FishDecisionMaker(applicable_players=(0,))
+        model.create_new_histories(1)
+        self.assertEqual(model.state_history, {0: [[]]}, "state history not created correctly")
+        self.assertEqual(model.action_history, {0: [[]]}, "action history not created correctly")
+        self.assertEqual(model.rewards_history, {0: [[]]}, "rewards history not created correctly")
+
+    def test_update_data(self):
+        own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
+        model = FishDecisionMaker(applicable_players=(0,))
+        model.create_new_histories(1)
+        player = Player.player_start_of_game(0, own_hand, train=False)
+        info_i = copy.deepcopy(player.info)
+        hs_info_i = copy.deepcopy(player.hs_info)
+        num_cards_i = copy.deepcopy(player.num_cards)
+        public_info_i = copy.deepcopy(player.public_info)
+        public_hs_info_i = copy.deepcopy(player.public_hs_info)
+        player.update_transaction(0, 1, "Jh", True)
+        info_f = player.info
+        hs_info_f = player.hs_info
+        num_cards_f = player.num_cards
+        public_info_f = player.public_info
+        public_hs_info_f = player.public_hs_info
+        model.update_data(0, info_i, hs_info_i, num_cards_i, public_info_i, public_hs_info_i,
+                          info_f, hs_info_f, num_cards_f, public_info_f, public_hs_info_f,
+                          0, 1, "Jh", True, 0)
+        state_i = model.generate_state_vector(info_i, hs_info_i, num_cards_i, public_info_i, public_hs_info_i, 0, 0)
+        state_f = model.generate_state_vector(info_f, hs_info_f, num_cards_f, public_info_f, public_hs_info_f, 0, 0)
+        state_expected = {0: [[(state_i, state_f)]]}
+        action_expected = {0: [[model.generate_action_number(0, 1, "Jh")]]}
+        reward_expected = {0: [[1]]}
+        self.assertEqual(model.state_history, state_expected, "state history not correct")
+        self.assertEqual(model.action_history, action_expected, "action history not correct")
+        self.assertEqual(model.rewards_history, reward_expected, "reward history not correct")
 
 
 if __name__ == "__main__":

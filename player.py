@@ -76,6 +76,7 @@ class Player:
         self.remaining_hs = remaining_hs
         self.model = model
         self.train = train
+        self._store_temporary_state()
         self._update_info()
         self._update_public_info()
 
@@ -294,7 +295,8 @@ class Player:
                 self.public_hs_info[ID_ask][card_utils.find_half_suit(card)] = 1
         self._update_info(card_utils.find_cards(card_utils.find_half_suit(card)))
         self._update_public_info(card_utils.find_cards(card_utils.find_half_suit(card)))
-        self._update_model(ID_ask, ID_target, card, success)
+        if ID_ask == self.ID and self.train:
+            self._update_model(ID_ask, ID_target, card, success)
 
     def update_call(self, hs, card_count_hs):
         """
@@ -323,7 +325,8 @@ class Player:
         Updates the latest reward of the model
         :param win: True if player won, false otherwise
         """
-        self.model.update_game_done(win)
+        if self.train:
+            self.model.update_game_done(self.ID, win)
 
     def own_cards(self):
         """
@@ -358,6 +361,7 @@ class Player:
         Returns the optimal person and card to ask
         Format: (target_player_id, card)
         """
+        self._store_temporary_state()
         ask_guarenteed = self._check_card_guarenteed()
         if ask_guarenteed:
             return ask_guarenteed
@@ -369,6 +373,17 @@ class Player:
                 valid.append(c)
         return target, valid[random.randint(0, len(valid) - 1)]
         # return self._list_best_options()[0]
+
+    def _store_temporary_state(self):
+        """
+        stores the current state variables into temporary state variables
+        :return:
+        """
+        self.info_temp = copy.deepcopy(self.info)
+        self.hs_info_temp = copy.deepcopy(self.hs_info)
+        self.num_cards_temp = copy.deepcopy(self.num_cards)
+        self.public_info_temp = copy.deepcopy(self.public_info)
+        self.public_hs_info_temp = copy.deepcopy(self.public_hs_info)
 
     def _check_card_guarenteed(self):
         """
@@ -445,7 +460,7 @@ class Player:
                     call.append((ID, card))
                     found = True
             if not found:
-                # -2 because yourself is not included
+                # -2 because yourself is not included and because randint has inclusive boundaries
                 call.append((teammates[random.randint(0, len(teammates)-2)], card))
         return call
 
@@ -496,5 +511,7 @@ class Player:
         :param card: card being asked
         :param success: is the action successful
         """
-        self.model.update_data(self.info, self.hs_info, self.num_cards, self.public_info, self.public_hs_info,
+        self.model.update_data(self.ID, self.info_temp, self.hs_info_temp, self.num_cards_temp,
+                               self.public_info_temp, self.public_hs_info_temp,
+                               self.info, self.hs_info, self.num_cards, self.public_info, self.public_hs_info,
                                ID_ask, ID_target, card, success, 0)
