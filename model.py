@@ -15,7 +15,7 @@ class FishDecisionMaker(keras.Sequential):
 
     Also note that this model only predicts what cards to ask,
     not when to call.
-    When to call is hardcoded (It is when the players know excactly a half suit)
+    When to call is hardcoded (It is when the players know exactly a half suit)
 
     This model trains on data collected from virtual games
 
@@ -227,30 +227,45 @@ class FishDecisionMaker(keras.Sequential):
                     use_multiprocessing=False):
         """
         Fits the model with q learning y values and states for x values
+
+        The Q-learning algorithm works as follows:
+        The input to the neural network is a state vector, obtained from the
+        initial state before the player made their move
+        The target y-values are calculated using the Q-learning algorithm
+        This involves the final state vector (the state vector obtained after
+        the player makes their move), the action number, and the reward
+        We obtain a single data point y_i as follows:
+        Initially, we set target = r_i + gamma * max(predicted q-score for final state)
+        (This is just the result of q-learning)
+        Then, we set y_i = predicted q-score for final state
+        Then, we set the a_i'th index of y_i to target
+
         :param history_length: maximum number of games to fit history on
+        The model will fit history_length games from each player, for
+        a total of num_players*history_length games
         Other parameters are inherited from superclass
         """
-        start = len(self.done_history) - 1
-        count = 0
-        while start > 0 and count < history_length + 1:
-            if self.done_history[start]:
-                count += 1
-            start -= 1
-        if start > 0:
-            start += 1
-        x, y = [], []
-        for i in range(start, len(self.done_history)):
-            if not self.done_history[i]:
-                x.append(self.state_history[i])
-                print("start: {}  current: {}   finish: {}".format(start, i, len(self.done_history) - 1))
-                next_state = np.array(self.state_history[i + 1]).reshape(1, constants.SIZE_STATES)
-                target = self.rewards_history[i] + constants.GAMMA * np.max(self.predict(next_state))
-                y0 = self.predict(np.array(self.state_history[i]).reshape(1, constants.SIZE_STATES))[0]
-                y0[self.action_history[i]] = target
-                y.append(y0)
+        x = []
+        y = []
+        total_history_length = len(self.state_history[self.applicable_players[0]])
+        for i in range(max(0, total_history_length - history_length), total_history_length):
+            for p in self.applicable_players:
+                state_arr = self.state_history[p][i]
+                s_i_list = [x[0] for x in state_arr]
+                s_f_list = [x[1] for x in state_arr]
+                rewards_arr = self.rewards_history[p][i]
+                action_arr = self.action_history[p][i]
+                for s_i, s_f, r, a in zip(s_i_list, s_f_list, rewards_arr, action_arr):
+                    s_f = np.array(s_f).reshape(1, constants.SIZE_STATES)
+                    s_i = np.array(s_i).reshape(1, constants.SIZE_STATES)
+                    x.append(s_i)
+                    target = r + constants.GAMMA * np.max(self.predict(s_f))
+                    y_i = self.predict(s_f)
+                    y_i[0, a] = target
+                    y.append(y_i)
 
-        x = np.array(x)
-        y = np.array(y)
+        x = np.vstack(x)
+        y = np.vstack(y)
         self.fit(x, y, batch_size, epochs, verbose, callbacks, validation_split,
                  validation_data, shuffle, class_weight, sample_weight, initial_epoch,
                  steps_per_epoch, validation_steps, validation_batch_size, validation_freq,
@@ -260,15 +275,20 @@ class FishDecisionMaker(keras.Sequential):
         """
         if length of history is longer than length, delete the first
         n games until the history is shorter than length
+
+        Length is defined as the total number of entries in all players
         :return: True if history was deleted, else False
         """
-        if len(self.done_history) > length:
-            start = len(self.done_history) - length
-            while not self.done_history[start]:
-                start += 1
-            self.state_history = self.state_history[start:]
-            self.action_history = self.action_history[start:]
-            self.rewards_history = self.action_history[start:]
-            self.done_history = self.done_history[start:]
-            return True
-        return False
+        keep_count = 0
+        cur_length = 0
+        while cur_length < length:
+            keep_count += 1
+            if keep_count == len(self.action_history[0]):
+                return False
+            for p in self.applicable_players:
+                cur_length += len(self.action_history[p][-keep_count])
+
+        self.state_history = self.state_history[-keep_count:]
+        self.action_history = self.action_history[-keep_count:]
+        self.rewards_history = self.action_history[-keep_count:]
+        return True

@@ -376,6 +376,13 @@ class TestModel(unittest.TestCase):
         self.assertEqual(model.action_history, {0: [[]]}, "action history not created correctly")
         self.assertEqual(model.rewards_history, {0: [[]]}, "rewards history not created correctly")
 
+    def test_multiple_players(self):
+        model = FishDecisionMaker(applicable_players=(0,1))
+        model.create_new_histories(1)
+        self.assertEqual(model.state_history, {0: [[]], 1: [[]]}, "state history not created correctly")
+        self.assertEqual(model.action_history, {0: [[]], 1: [[]]}, "action history not created correctly")
+        self.assertEqual(model.rewards_history, {0: [[]], 1: [[]]}, "rewards history not created correctly")
+
     def test_update_data(self):
         own_hand = ["2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "Th"]
         model = FishDecisionMaker(applicable_players=(0,))
